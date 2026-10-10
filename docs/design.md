@@ -15,3 +15,87 @@ Individuals or teams who have many documents but not enough time to go through t
 ## Not in the first version
 - Uploading pictures.
 - A mobile app.
+
+## Data Model
+
+## users
+- id
+- email(must be unique)
+- password_hash
+- created_at
+
+## workspaces
+- id
+- name
+- created_at
+
+## memberships
+- id
+- created_at
+- role
+- workspace_id(->workspaces)
+- user_id(->users)
+ 
+
+## documents
+- id
+- workspace_id(->workspaces)
+- filename
+- status
+- storage_path
+- created_at
+- error_message
+- content_type
+
+## chunks
+- id
+- workspace_id(->workspaces)
+- page_number
+- text
+- position
+- document_id(->documents)
+- created_at
+
+## Decisions
+
+### 1. ID Style
+I choose UUIDs because they can't be guessed.Mistakes during permission checks won't leak another team's data.
+
+### 2. Delete Rule
+- delete a user -> their memberships are deleted(cascade), but not allowed if they are the only owner of a workspace.
+- delete a workspace -> its chunks, documents and memberships are deleted(cascade); the stored files are deleted by the app.
+- delete a document -> its chunks are deleted(cascade).
+- Files on disk don't cascade,so the app code must delete those files itself.
+
+### 3. Document Status
+Values: uploaded -> reading-> done, or error(with error_message)
+Only the app changes the status, not the user.
+Retry: Errored document can be retried.
+
+## Roles
+owner > editor > viewer. Each role can do anything the lower ones can.
+
+## Endpoints
+| Method | Path | Lowest role | What it does | Status code |
+|---|---|---|---|---|
+| POST | /auth/register | anyone | creates an account | 201 |
+| POST | /auth/login | anyone | logs a user back in, get a token back | 200 |
+| POST | /workspaces | logged-in user | creates a workspace(creator becomes owner) | 201 |
+| GET | /workspaces | logged-in user | lists workspaces user belongs to | 200 |
+| POST | /workspaces/{workspace_id}/members | owner | adds members to the workspace | 201 |
+| POST | /workspaces/{workspace_id}/documents | editor | uploads a document | 202 |
+| GET | /workspaces/{workspace_id}/documents | any member | lists the documents in workspace | 200 |
+| GET | /workspaces/{workspace_id}/documents/{document_id} | any member| shows a document and it's status | 200 |
+| DELETE | /workspaces/{workspace_id}/documents/{document_id} | editor | deletes a document | 204 |
+| POST | /workspaces/{workspace_id}/ask | any member | asks a question | 200 |
+
+## Errors
+| Situation | Code | error | message |
+|---|---|---|---|
+| Not logged in. | 401 | not_authenticated | Please login first. |
+| Member,but role too low. | 403 | forbidden | You don't have permission to do this. |
+| Workspace or document doesn't exist. | 404 | not_found | Document/Workspace not found. |
+| Request itself is wrong. | 422 | validation_error | Email is required. |
+
+Every error looks like: {"error":"not_found","message":"Document/Workspace not found."}
+A non-member gets 404, and members gets 403 if their role is too low. So, non-members can't learn if a workspace exists or not.
