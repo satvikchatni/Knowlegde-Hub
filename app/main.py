@@ -5,6 +5,7 @@ from typing import Annotated
 from sqlalchemy.ext.asyncio import AsyncSession
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from app.routers import auth
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -12,6 +13,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await engine.dispose()
 
 app = FastAPI(lifespan=lifespan)
+app.include_router(auth.router)
 
 
 @app.get("/")
