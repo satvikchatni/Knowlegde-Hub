@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings,SettingsConfigDict
 from sqlalchemy import URL
+from pydantic import Field
 class Settings(BaseSettings):
     
 
@@ -8,6 +9,10 @@ class Settings(BaseSettings):
     database_host: str
     database_port: int
     database_name: str
+    secret_key: str=Field(min_length=32, max_length=128)
+    algorithm: str = "HS256"
+    access_token_expire_minutes: int = 15
+
 
     @property
     def database_url(self) -> URL:
