@@ -15,8 +15,7 @@ async def test_login_success(client):
     assert payload["sub"] == user["id"]
 
 async def test_login_wrong_password(client):
-    reg=await client.post("/auth/register", json={"email": "asha@example.com", "password": "password123"})
-    user=reg.json()
+    
     response = await client.post(
         "/auth/login", data={"username": "asha@example.com", "password": "wrongpassword"}
     )

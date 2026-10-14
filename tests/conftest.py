@@ -52,3 +52,25 @@ async def client(test_engine):
         yield test_client
     app.dependency_overrides.clear()
 
+@pytest.fixture
+async def db_session(test_engine, client):
+    """A session for tests that need to look at, or change, rows directly."""
+    async with async_sessionmaker(test_engine, expire_on_commit=False)() as session:
+        yield session
+
+
+@pytest.fixture
+async def registered_user(client):
+    response = await client.post(
+        "/auth/register", json={"email": "asha@example.com", "password": "password123"}
+    )
+    return {**response.json(), "password": "password123"}
+
+
+@pytest.fixture
+async def tokens(client, registered_user):
+    response = await client.post(
+        "/auth/login",
+        data={"username": registered_user["email"], "password": registered_user["password"]},
+    )
+    return response.json()

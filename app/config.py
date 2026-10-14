@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     secret_key: str=Field(min_length=32, max_length=128)
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 15
+    refresh_token_expire_days: int = 7
 
 
     @property

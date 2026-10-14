@@ -1,3 +1,6 @@
+import hashlib
+import secrets
+
 from pwdlib import PasswordHash
 import uuid
 from datetime import datetime,timedelta,timezone
@@ -18,3 +21,19 @@ def create_access_token(user_id: uuid.UUID) -> str:
     payload = {"sub": str(user_id), "exp": expire}#str(...) is needed because JSON has no UUID type, and the library requires sub to be a string.
     token = jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
     return token
+
+def decode_access_token(token: str) -> uuid.UUID:
+    payload = jwt.decode(
+        token,
+        settings.secret_key,
+        algorithms=[settings.algorithm],
+        options={"require": ["exp", "sub"]},
+    )
+    return uuid.UUID(payload["sub"])
+
+def generate_refresh_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
