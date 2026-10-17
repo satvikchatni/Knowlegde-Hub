@@ -11,6 +11,10 @@ from app.schemas import RefreshRequest, RegisterRequest, UserResponse, TokenResp
 from app.security import hash_password, create_access_token, verify_password
 from sqlalchemy import select
 from app.services.refresh_tokens import issue_refresh_token
+from datetime import UTC, datetime
+
+from app.security import create_access_token, hash_token
+from app.services.refresh_tokens import issue_refresh_token, revoke_family
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
@@ -57,36 +61,38 @@ async def get_current_user(current_user: CurrentUser):
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh(body: RefreshRequest, db: DbSession):
-    token_hash = hash_password(body.refresh_token)
-    query = select(RefreshToken).where(RefreshToken.token_hash == token_hash)
-    result = await db.execute(query)
-    stored = result.scalar()
-    if not stored or stored.revoked_at is not None or stored.expires_at <= datetime.now():
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid refresh token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    stored.revoked_at = datetime.now()
+    invalid = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid refresh token",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    stored = await db.scalar(
+        select(RefreshToken).where(RefreshToken.token_hash == hash_token(body.refresh_token))
+    )
+    if stored is None:
+        raise invalid
+    if stored.revoked_at is not None:
+        # already used: possibly stolen, so end every session from this login
+        await revoke_family(db, stored.family_id)
+        await db.commit()  # must happen before the raise, or the revoke is lost
+        raise invalid
+    if stored.expires_at <= datetime.now(UTC):
+        raise invalid
+
+    # rotation: the old token dies, a new one in the same family replaces it
+    stored.revoked_at = datetime.now(UTC)
     new_refresh_token = issue_refresh_token(db, stored.user_id, stored.family_id)
+    await db.commit()
     return TokenResponse(
-        access_token=create_access_token(stored.user_id),
-        refresh_token=new_refresh_token
+        access_token=create_access_token(stored.user_id), refresh_token=new_refresh_token
     )
     
 
-
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(body: RefreshRequest, db: DbSession) -> None:
-    token_hash = hash_password(body.refresh_token)
-    query = select(RefreshToken).where(RefreshToken.token_hash == token_hash)
-    result = await db.execute(query)
-    stored = result.scalar()
-    if not stored or stored.revoked_at is not None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid refresh token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    stored.revoked_at = datetime.now()
-    await db.commit()
+    stored = await db.scalar(
+        select(RefreshToken).where(RefreshToken.token_hash == hash_token(body.refresh_token))
+    )
+    if stored is not None:  # unknown token: do nothing and say nothing
+        await revoke_family(db, stored.family_id)
+        await db.commit()

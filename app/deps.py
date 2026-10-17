@@ -17,14 +17,13 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db: Db
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    decoded_token = decode_access_token(token)
-    if not decoded_token:
+    try:
+        user_id = decode_access_token(token)
+    except (jwt.InvalidTokenError, ValueError):
         raise credentials_error
-    user_id = decoded_token.get("sub")
     user = await db.get(User, user_id)
-    if not user:
+    if user is None:
         raise credentials_error
     return user
-
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
