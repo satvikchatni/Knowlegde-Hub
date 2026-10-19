@@ -2,11 +2,11 @@ import pytest
 from httpx2 import ASGITransport, AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-from app import models
 from app.db import Base
 from app.config import settings
 from app.db import get_db
 from app.main import app
+from pydantic import EmailStr
 
 # Tests are run on "<your database>_test", never on your real development database.
 TEST_DB_NAME = f"{settings.database_name}_test"
@@ -74,3 +74,17 @@ async def tokens(client, registered_user):
         data={"username": registered_user["email"], "password": registered_user["password"]},
     )
     return response.json()
+
+@pytest.fixture
+def make_user(client):
+    async def _make_user(email:EmailStr):
+        response1=(await client.post("/auth/register",json={"email":email,"password":"password123"})).json()
+        response2=(await client.post("/auth/login",data={"username":response1["email"],"password":"password123"})).json()
+        headers={"Authorization": f"Bearer {response2["access_token"]}"}#need headers to be a dictionary not a raw string.
+        return {"id":response1["id"],"email":response1["email"],"access_token":response2["access_token"],"refresh_token":response2["refresh_token"],"headers":headers}
+    return _make_user
+
+
+
+
+

@@ -5,7 +5,7 @@ from typing import Annotated
 from sqlalchemy.ext.asyncio import AsyncSession
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from app.routers import auth
+from app.routers import auth,workspaces
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -14,7 +14,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(auth.router)
-
+app.include_router(workspaces.router)
 
 @app.get("/")
 def read_root():

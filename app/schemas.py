@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from pydantic import BaseModel, EmailStr,Field,ConfigDict
-from models import Role
+from app.models import Role
 class RegisterRequest(BaseModel):
     email: EmailStr
     password:str=Field(min_length=8, max_length=128)
