@@ -82,6 +82,7 @@ owner > editor > viewer. Each role can do anything the lower ones can.
 | POST | /auth/login | anyone | logs a user back in, get a token back | 200 |
 | POST | /workspaces | logged-in user | creates a workspace(creator becomes owner) | 201 |
 | GET | /workspaces | logged-in user | lists workspaces user belongs to | 200 |
+| GET | /workspaces/{workspace_id} | logged-in user | lists workspace with specific id | 200 |
 | POST | /workspaces/{workspace_id}/members | owner | adds members to the workspace | 201 |
 | POST | /workspaces/{workspace_id}/documents | editor | uploads a document | 202 |
 | GET | /workspaces/{workspace_id}/documents | any member | lists the documents in workspace | 200 |
@@ -99,3 +100,5 @@ owner > editor > viewer. Each role can do anything the lower ones can.
 
 Every error looks like: {"error":"not_found","message":"Document/Workspace not found."}
 A non-member gets 404, and members gets 403 if their role is too low. So, non-members can't learn if a workspace exists or not.
+The workspace's responses include the caller's role.
+An owner may add another owner.
