@@ -13,7 +13,8 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
-
+    upload_dir : str= "storage"
+    max_uplad_mb: int= 10
 
     @property
     def database_url(self) -> URL:

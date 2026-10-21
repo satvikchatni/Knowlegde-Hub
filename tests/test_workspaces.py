@@ -119,7 +119,6 @@ def test_ranking():
     "role,expected_status_code",
     [("viewer",403),("owner",201),("editor",403),("stranger",404),("anonymous",401)]
 )
-@pytest.mark.asyncio
 async def test_matrix(client,make_user,role,expected_status_code):
     owner=await make_user("satvik@example.com")
     response1=await client.post("/workspaces",headers=owner['headers'],json={"name":"matrix test"})
