@@ -1,13 +1,14 @@
-from fastapi import APIRouter,status,HTTPException,UploadFile
-from app.schemas import WorkSpaceCreate,WorkSpaceResponse,MemberAdd,MemberResponse,DocumentResponse
+from fastapi import APIRouter,status,HTTPException,UploadFile,Query
+from app.schemas import WorkSpaceCreate,WorkSpaceResponse,MemberAdd,MemberResponse,DocumentResponse,ListResponse,ListRequest
 from app.deps import DbSession,CurrentUser,Owner,AnyRole,EditorandAbove
 from app.models import WorkSpace,Membership,User,Role,Document
-from sqlalchemy import select
+from sqlalchemy import select,func
 from sqlalchemy.exc import IntegrityError
 import uuid
 from typing import List
 from app.config import settings
 from app.services.storage import StorageService
+from typing import Annotated
 
 router=APIRouter(prefix="/workspaces",tags=["workspaces"])
 
@@ -102,7 +103,28 @@ async def upload_file(workspace_id:uuid.UUID,file:UploadFile,db:DbSession,member
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Failed to save record document to the database")
 
 
-
-    
-
-
+@router.get("/{workspace_id}/documents",response_model=ListResponse,status_code=status.HTTP_200_OK)
+async def get_list_of_document(filter_query:Annotated[ListRequest,Query()],db:DbSession,membership:AnyRole,workspace_id:uuid.UUID):
+    # query=select(Document).where(Document.workspace_id==workspace_id).order_by(Document.created_at.desc()).limit(filter_query.limit).offset(filter_query.offset)#offset=20:skips the first 20 rows
+    # result=await db.execute(query)
+    # document_list=result.scalars().all()
+    # count= await db.scalar(select(func.count(Document.id)).where(Document.workspace_id==workspace_id))
+    # return {
+    #     "items":document_list,
+    #     "total":count,
+    #     "limit":filter_query.limit,
+    #     "offset":filter_query.offset
+    # }
+    base_filter=[Document.workspace_id==workspace_id]
+    if hasattr(filter_query,"status") and filter_query.status: #check if filter_query has the attribute status first then check if it has a value(other than None obv)
+        base_filter.append(Document.status==filter_query.status)
+    count=await db.scalar(select(func.count(Document.id)).where(*base_filter))
+    query=select(Document).where(*base_filter).order_by(Document.created_at.desc()).limit(filter_query.limit).offset(filter_query.offset)
+    result= await db.execute(query)
+    document_list=result.scalars().all()
+    return {
+            "items":document_list,
+            "total":count,
+            "limit":filter_query.limit,
+            "offset":filter_query.offset
+        }

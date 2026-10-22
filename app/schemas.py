@@ -58,7 +58,12 @@ class DocumentResponse(BaseModel):
     error_message: str|None
     created_at: datetime
 
+class ListRequest(BaseModel):
+    limit:int=Field(20,ge=0,le=100)
+    offset:int=Field(ge=0)
+
 class ListResponse(BaseModel):
+    model_config=ConfigDict(from_attributes=True)
     items: List[DocumentResponse]
     total: int
     limit: int
