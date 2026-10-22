@@ -2,13 +2,14 @@ from fastapi import APIRouter,status,HTTPException,UploadFile,Query
 from app.schemas import WorkSpaceCreate,WorkSpaceResponse,MemberAdd,MemberResponse,DocumentResponse,ListResponse,ListRequest
 from app.deps import DbSession,CurrentUser,Owner,AnyRole,EditorandAbove
 from app.models import WorkSpace,Membership,User,Role,Document
-from sqlalchemy import select,func
+from sqlalchemy import select,func,delete
 from sqlalchemy.exc import IntegrityError
 import uuid
 from typing import List
 from app.config import settings
 from app.services.storage import StorageService
 from typing import Annotated
+from pathlib import Path
 
 router=APIRouter(prefix="/workspaces",tags=["workspaces"])
 
@@ -128,3 +129,29 @@ async def get_list_of_document(filter_query:Annotated[ListRequest,Query()],db:Db
             "limit":filter_query.limit,
             "offset":filter_query.offset
         }
+
+@router.get("/{workspace_id}/documents/{document_id}",response_model=DocumentResponse,status_code=status.HTTP_200_OK)
+async def get_document(workspace_id:uuid.UUID,document_id:uuid.UUID,db:DbSession,membership:AnyRole):
+    stmt=select(Document).where(Document.id==document_id,Document.workspace_id==workspace_id)
+    result=await db.execute(stmt)
+    document=result.scalar_one_or_none()
+    if document is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=f"document with id:{document_id} doesn't exist in this workspace")
+    return document
+
+@router.delete("/{workspace_id}/documents/{document_id}",status_code=status.HTTP_204_NO_CONTENT)
+async def delete_document(db:DbSession,workspace_id:uuid.UUID,document_id:uuid.UUID,membership:EditorandAbove):
+    stmt=select(Document).where(Document.id==document_id,Document.workspace_id==workspace_id)
+    document=await db.scalar(stmt)
+
+    if not document:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=f"document with id:{document_id} not found")
+    relative_path=document.storage_path
+    query=delete(Document).where(Document.id==document_id,Document.workspace_id==workspace_id)#we use delete(...) instead of select(...) for deletion operations.
+    await db.execute(query)
+    await db.commit()
+    try:
+        storage=StorageService(upload_dir=settings.upload_dir)
+        await storage.delete_file(relative_path) #delete_file is a asynchronous
+    except Exception:
+        pass #treating missing file as 'fine'
