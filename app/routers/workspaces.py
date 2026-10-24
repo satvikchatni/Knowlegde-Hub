@@ -88,7 +88,12 @@ async def upload_file(workspace_id:uuid.UUID,file:UploadFile,db:DbSession,member
         file_type=storage.verify_file_type(file.file)
     except ValueError:
         raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,detail="wrong type of file, or content doesn't match extension.")
-    
+    if file_type=="text/plain" and file.filename.endswith(".pdf"):#important verification
+        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,detail="wrong type of file, or content doesn't match extension.")
+    if file_type=="application/pdf" and file.filename.endswith(".txt"):
+        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,detail="wrong type of file, or content doesn't match extension.")
+    if file.filename.endswith(".txt") is False and file.filename.endswith(".pdf") is False:
+        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,detail="wrong type of file, or content doesn't match extension.")
     clean_name=storage.clean_display_name(file.filename)
     document_id=uuid.uuid4()
     relative_path=await storage.save_file(file=file,workspace_id=workspace_id,document_id=document_id)

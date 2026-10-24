@@ -88,23 +88,24 @@ def make_user(client):
     return _make_user
 
 @pytest.fixture
-def upload_client(client,monkeypatch,tmp_path):
+async def upload_client(client,monkeypatch,tmp_path):
     monkeypatch.setattr(settings,"upload_dir",str(tmp_path))
-    return client
+    monkeypatch.setattr(settings,"max_upload_mb",1)
+    yield client
 
 #tmp_path is a built-in pytest fixture that provides a temporary directory for the duration of your tests as a pathlib.Path object, deletes this folder automatically later.
 #monkeypatch is a built-in pytest fixture that allows you to safely modify environment variables, dictionaries and objects during the runtime of your tests.
 
 @pytest.fixture
 def make_workspace(client):
-    async def _make_workspace(workspace_name:str,user_header:dict):
-        workspace=await client.post("/workspaces",headers=user_header,json={'name':workspace_name})
+    async def _make_workspace(workspace_name:str,user_headers:dict):
+        workspace=await client.post("/workspaces",headers=user_headers,json={'name':workspace_name})
         return workspace.json()
     return _make_workspace
 
 @pytest.fixture#factory fixture like closure but for your tests 
 def make_membership(client):
-    async def _make_membership(workspace_id:uuid.UUID,role:Role,user_id:uuid.UUID,owner_headers:dict):
-        membership=await client.post(f"/workspaces/{workspace_id}/members",headers=owner_headers,json={"user_id":user_id,"role":role})
+    async def _make_membership(workspace_id:uuid.UUID,role:Role,email:str,owner_headers:dict):
+        membership=await client.post(f"/workspaces/{workspace_id}/members",headers=owner_headers,json={"email":email,"role":role})
         return membership.json()
     return _make_membership
