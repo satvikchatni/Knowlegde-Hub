@@ -1,7 +1,7 @@
 from fastapi import APIRouter,status,HTTPException,UploadFile,Query
 from app.schemas import WorkSpaceCreate,WorkSpaceResponse,MemberAdd,MemberResponse,DocumentResponse,ListResponse,ListRequest
 from app.deps import DbSession,CurrentUser,Owner,AnyRole,EditorandAbove
-from app.models import WorkSpace,Membership,User,Role,Document
+from app.models import WorkSpace,Membership,User,Role,Document,DocumentStatus
 from sqlalchemy import select,func,delete
 from sqlalchemy.exc import IntegrityError
 import uuid
@@ -88,17 +88,17 @@ async def upload_file(workspace_id:uuid.UUID,file:UploadFile,db:DbSession,member
         file_type=storage.verify_file_type(file.file)
     except ValueError:
         raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,detail="wrong type of file, or content doesn't match extension.")
-    if file_type=="text/plain" and file.filename.endswith(".pdf"):#important verification
+    if file_type=="text/plain" and file.filename.lower().endswith(".pdf"):#important verification
         raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,detail="wrong type of file, or content doesn't match extension.")
-    if file_type=="application/pdf" and file.filename.endswith(".txt"):
+    if file_type=="application/pdf" and file.filename.lower().endswith(".txt"):
         raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,detail="wrong type of file, or content doesn't match extension.")
-    if file.filename.endswith(".txt") is False and file.filename.endswith(".pdf") is False:
+    if file.filename.lower().endswith(".txt") is False and file.filename.lower().endswith(".pdf") is False:
         raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,detail="wrong type of file, or content doesn't match extension.")
     clean_name=storage.clean_display_name(file.filename)
     document_id=uuid.uuid4()
     relative_path=await storage.save_file(file=file,workspace_id=workspace_id,document_id=document_id)
     try:
-        document=Document(id=document_id,workspace_id=workspace_id,filename=clean_name,content_type=file_type,size_bytes=file.size,status="uploaded",storage_path=relative_path)
+        document=Document(id=document_id,workspace_id=workspace_id,filename=clean_name,content_type=file_type,size_bytes=file.size,status=DocumentStatus.uploaded,storage_path=relative_path)
         db.add(document)
         await db.commit()
         await db.refresh(document)
@@ -106,7 +106,7 @@ async def upload_file(workspace_id:uuid.UUID,file:UploadFile,db:DbSession,member
     except Exception as e:
         await db.rollback()
         await storage.delete_file(relative_path)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Failed to save record document to the database")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Failed to save record document to the database") from e
 
 
 @router.get("/{workspace_id}/documents",response_model=ListResponse,status_code=status.HTTP_200_OK)
@@ -155,8 +155,7 @@ async def delete_document(db:DbSession,workspace_id:uuid.UUID,document_id:uuid.U
     query=delete(Document).where(Document.id==document_id,Document.workspace_id==workspace_id)#we use delete(...) instead of select(...) for deletion operations.
     await db.execute(query)
     await db.commit()
-    try:
-        storage=StorageService(upload_dir=settings.upload_dir)
-        await storage.delete_file(relative_path) #delete_file is a asynchronous
-    except Exception:
-        pass #treating missing file as 'fine'
+    
+    storage=StorageService(upload_dir=settings.upload_dir)
+    await storage.delete_file(relative_path) #delete_file is a asynchronous
+    
