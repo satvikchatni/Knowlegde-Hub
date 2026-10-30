@@ -40,10 +40,9 @@ async def test_long_wrong_email(client):
 
 
 async def test_login_same_email(client):
-    reg = await client.post(
+    await client.post(
         "/auth/register", json={"email": "asha@example.com", "password": "password123"}
     )
-    user = reg.json()
     response = await client.post(
         "/auth/login", data={"username": "ASHA@example.com", "password": "password123"}
     )

@@ -24,7 +24,7 @@ class StorageService:
             )  # text file conatins nothing but valid text characters, every single byte in a text file matches a valid entry in "UTF-8" dictionary.
             return "text/plain"
         except UnicodeDecodeError:
-            raise ValueError("invalid file type")
+            raise ValueError("invalid file type") from None
 
     def clean_display_name(self, filename: str):
         if not filename or not filename.strip():  # .strip() removes whitespaces

@@ -25,7 +25,7 @@ async def test_create_workspace_with_long_name(client, make_user):
 
 
 async def test_create_workspace_with_no_token(client, make_user):
-    user = await make_user("satvik@example.com")
+    await make_user("satvik@example.com")
 
     response = await client.post("/workspaces", json={"name": "no-token-unauthorized-user"})
     assert response.status_code == 401

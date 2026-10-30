@@ -26,7 +26,7 @@ async def test_txt_file_upload(upload_client, make_user, make_workspace, tmp_pat
     path = (
         tmp_path / response.json()["workspace_id"] / f"{response.json()['id']}.txt"
     )  # json doesn't have standard uuid type,id and workspace_id when returned as json are strings, can chain temp_path to other strings or path objects
-    assert path.exists() == True
+    assert path.exists()
     assert path.read_bytes() == b"content"
 
 
@@ -139,7 +139,7 @@ async def test_matrix_file_upload(
         test_headers = owner["headers"]
     elif role == "editor" or role == "viewer":
         member = await make_user("ve@example.com")  # can be either vieweror editor
-        membership = await make_membership(
+        await make_membership(
             workspace_id=workspace_id,
             role=role,
             email=member["email"],
@@ -177,7 +177,7 @@ async def test_matrix_file_delete(
         test_headers = owner["headers"]
     elif role == "editor" or role == "viewer":
         member = await make_user("ve@example.com")  # can be either vieweror editor
-        membership = await make_membership(
+        await make_membership(
             workspace_id=workspace_id,
             role=role,
             email=member["email"],
@@ -216,7 +216,7 @@ async def test_get_one_document(
     )
     if role == "editor" or role == "viewer":
         member = await make_user("ve@example.com")  # can be either vieweror editor
-        membership = await make_membership(
+        await make_membership(
             workspace_id=workspace_id,
             role=role,
             email=member["email"],

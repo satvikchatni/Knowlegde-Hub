@@ -69,8 +69,9 @@ class DocumentResponse(BaseModel):
 
 
 class ListRequest(BaseModel):
-    limit: int = Field(20, ge=0, le=100)
-    offset: int = Field(ge=0)
+    limit: int = Field(20, ge=1, le=100)
+    offset: int = Field(0, ge=0)
+    status: DocumentStatus | None = None
 
 
 class ListResponse(BaseModel):
@@ -79,3 +80,4 @@ class ListResponse(BaseModel):
     total: int
     limit: int
     offset: int
+    status: str | None = None

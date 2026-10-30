@@ -1,5 +1,4 @@
 import asyncio
-import datetime
 from datetime import UTC, datetime
 from typing import Annotated
 
@@ -31,7 +30,7 @@ async def register(body: RegisterRequest, db: DbSession):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Email already registered",
-        )
+        ) from None
     return user
 
 

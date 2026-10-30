@@ -109,7 +109,7 @@ async def add_user_to_workspace(body: MemberAdd, db: DbSession, membership: Owne
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="user already in workspace"
-        )
+        ) from None
 
 
 @router.post(
@@ -134,7 +134,7 @@ async def upload_file(
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             detail="wrong type of file, or content doesn't match extension.",
-        )
+        ) from None
     if file_type == "text/plain" and file.filename.lower().endswith(
         ".pdf"
     ):  # important verification
