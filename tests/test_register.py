@@ -4,7 +4,7 @@ async def test_register_success(client):
     )
     assert response.status_code == 201
     body = response.json()
-    assert body["email"] == "asha@example.com"   
+    assert body["email"] == "asha@example.com"
     assert "password" not in body and "password_hash" not in body
 
 
@@ -13,16 +13,14 @@ async def test_short_password(client):
         "/auth/register", json={"email": "asha@example.com", "password": "short"}
     )
     assert response.status_code == 422
-    
-    
 
-async def  test_invalid_email(client):
+
+async def test_invalid_email(client):
     response = await client.post(
         "/auth/register", json={"email": "invalid-email", "password": "password123"}
     )
     assert response.status_code == 422
-    
-    
+
 
 async def test_duplicate_email(client):
     response1 = await client.post(

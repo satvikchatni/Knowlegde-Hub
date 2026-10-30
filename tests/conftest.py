@@ -1,14 +1,14 @@
+import uuid
+
 import pytest
 from httpx2 import ASGITransport, AsyncClient
+from pydantic import EmailStr
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-from app.db import Base
+
 from app.config import settings
-from app.db import get_db
+from app.db import Base, get_db
 from app.main import app
-from pydantic import EmailStr
-from app.config import settings
-import uuid
 from app.models import Role
 
 # Tests are run on "<your database>_test", never on your real development database.
@@ -55,6 +55,7 @@ async def client(test_engine):
         yield test_client
     app.dependency_overrides.clear()
 
+
 @pytest.fixture
 async def db_session(test_engine, client):
     """A session for tests that need to look at, or change, rows directly."""
@@ -78,34 +79,64 @@ async def tokens(client, registered_user):
     )
     return response.json()
 
+
 @pytest.fixture
 def make_user(client):
-    async def _make_user(email:EmailStr):
-        response1=(await client.post("/auth/register",json={"email":email,"password":"password123"})).json()
-        response2=(await client.post("/auth/login",data={"username":response1["email"],"password":"password123"})).json()
-        headers={"Authorization": f"Bearer {response2["access_token"]}"}#need headers to be a dictionary not a raw string.
-        return {"id":response1["id"],"email":response1["email"],"access_token":response2["access_token"],"refresh_token":response2["refresh_token"],"headers":headers}
+    async def _make_user(email: EmailStr):
+        response1 = (
+            await client.post("/auth/register", json={"email": email, "password": "password123"})
+        ).json()
+        response2 = (
+            await client.post(
+                "/auth/login", data={"username": response1["email"], "password": "password123"}
+            )
+        ).json()
+        headers = {
+            "Authorization": f"Bearer {response2['access_token']}"
+        }  # need headers to be a dictionary not a raw string.
+        return {
+            "id": response1["id"],
+            "email": response1["email"],
+            "access_token": response2["access_token"],
+            "refresh_token": response2["refresh_token"],
+            "headers": headers,
+        }
+
     return _make_user
 
+
 @pytest.fixture
-async def upload_client(client,monkeypatch,tmp_path):
-    monkeypatch.setattr(settings,"upload_dir",str(tmp_path))
-    monkeypatch.setattr(settings,"max_upload_mb",1)
+async def upload_client(client, monkeypatch, tmp_path):
+    monkeypatch.setattr(settings, "upload_dir", str(tmp_path))
+    monkeypatch.setattr(settings, "max_upload_mb", 1)
     yield client
 
-#tmp_path is a built-in pytest fixture that provides a temporary directory for the duration of your tests as a pathlib.Path object, deletes this folder automatically later.
-#monkeypatch is a built-in pytest fixture that allows you to safely modify environment variables, dictionaries and objects during the runtime of your tests.
+
+# tmp_path is a built-in pytest fixture that provides a temporary directory for the duration of your tests as a pathlib.Path object, deletes this folder automatically later.
+# monkeypatch is a built-in pytest fixture that allows you to safely modify environment variables, dictionaries and objects during the runtime of your tests.
+
 
 @pytest.fixture
 def make_workspace(client):
-    async def _make_workspace(workspace_name:str,user_headers:dict):
-        workspace=await client.post("/workspaces",headers=user_headers,json={'name':workspace_name})
+    async def _make_workspace(workspace_name: str, user_headers: dict):
+        workspace = await client.post(
+            "/workspaces", headers=user_headers, json={"name": workspace_name}
+        )
         return workspace.json()
+
     return _make_workspace
 
-@pytest.fixture#factory fixture like closure but for your tests 
+
+@pytest.fixture  # factory fixture like closure but for your tests
 def make_membership(client):
-    async def _make_membership(workspace_id:uuid.UUID,role:Role,email:str,owner_headers:dict):
-        membership=await client.post(f"/workspaces/{workspace_id}/members",headers=owner_headers,json={"email":email,"role":role})
+    async def _make_membership(
+        workspace_id: uuid.UUID, role: Role, email: str, owner_headers: dict
+    ):
+        membership = await client.post(
+            f"/workspaces/{workspace_id}/members",
+            headers=owner_headers,
+            json={"email": email, "role": role},
+        )
         return membership.json()
+
     return _make_membership

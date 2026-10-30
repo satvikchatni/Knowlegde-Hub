@@ -1,0 +1,60 @@
+name: CI
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres
+        
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: knowledge_hub
+        
+        options: >-
+          --health-cmd "pg_isready -U postgres -d knowledge_hub"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432    
+    env:
+          DATABASE_USER: postgres
+          DATABASE_PASSWORD: postgres
+          DATABASE_HOST: localhost
+          DATABASE_PORT: 5432
+          DATABASE_NAME: knowledge_hub
+          SECRET_KEY: ci-only-secret-key-ci-only-secret-key-abcdefg123456789
+           
+    steps:
+      - uses: actions/checkout@v7
+      - name: Enable caching
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+      
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Lint
+        run: uv run ruff check .
+      
+      - name: Check formatting
+        run: uv run ruff format --check .
+      
+      - name: Migrations apply to an empty database and match the models
+        run: |
+          uv run alembic upgrade head
+          uv run alembic check
+      
+      - name: Run tests
+        run: uv run pytest
+
+
+  

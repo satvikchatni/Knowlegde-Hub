@@ -35,6 +35,3 @@ async def revoke_family(db: AsyncSession, family_id: uuid.UUID) -> None:
         .where(RefreshToken.family_id == family_id, RefreshToken.revoked_at.is_(None))
         .values(revoked_at=datetime.now(UTC))
     )
-
-
-
