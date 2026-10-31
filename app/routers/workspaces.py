@@ -130,7 +130,7 @@ async def upload_file(
 
     try:
         file_type = storage.verify_file_type(file.file)
-    except ValueError:
+    except ValueError: #use raise X from None in except block to hide low-level internal errors and to remove extra traceback
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             detail="wrong type of file, or content doesn't match extension.",

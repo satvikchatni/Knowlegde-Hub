@@ -40,7 +40,7 @@ async def test_reusing_an_old_refresh_token_ends_the_whole_session(client, token
 
 
 async def test_refresh_with_unknown_token(client):
-    response = await client.post("/auth/refresh", json={"refresh_token": "nope"})
+    response = await client.post("/auth/refresh", json={"refresh_token": "no"})
     assert response.status_code == 401
 
 
@@ -61,5 +61,5 @@ async def test_logout_revokes_the_session(client, tokens):
 
 
 async def test_logout_with_unknown_token_is_not_an_error(client):
-    response = await client.post("/auth/logout", json={"refresh_token": "nope"})
+    response = await client.post("/auth/logout", json={"refresh_token": "no"})
     assert response.status_code == 204

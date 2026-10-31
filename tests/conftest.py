@@ -66,7 +66,7 @@ async def db_session(test_engine, client):
 @pytest.fixture
 async def registered_user(client):
     response = await client.post(
-        "/auth/register", json={"email": "asha@example.com", "password": "password123"}
+        "/auth/register", json={"email": "satvik@example.com", "password": "password123"}
     )
     return {**response.json(), "password": "password123"}
 
