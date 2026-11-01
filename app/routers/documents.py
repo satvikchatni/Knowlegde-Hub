@@ -1,22 +1,18 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, UploadFile, status
-from sqlalchemy import delete, func, select
+from fastapi import APIRouter, Query, UploadFile, status
 
-from app.config import settings
 from app.deps import AnyRole, DbSession, EditorandAbove
-from app.models import Document, DocumentStatus
 from app.schemas import (
     DocumentResponse,
     ListRequest,
     ListResponse,
 )
-from app.services.storage import StorageService
-from app.exceptions import NotFound,TooLarge,UnsupportedType
-from app.services.documents import file_upload,list_of_documents,get_a_document,delete_a_document
+from app.services.documents import delete_a_document, file_upload, get_a_document, list_of_documents
 
-router=APIRouter(prefix="/workspaces/{workspace_id}/documents",tags=["documents"])
+router = APIRouter(prefix="/workspaces/{workspace_id}/documents", tags=["documents"])
+
 
 @router.post(
     "",
@@ -26,23 +22,21 @@ router=APIRouter(prefix="/workspaces/{workspace_id}/documents",tags=["documents"
 async def upload_file(
     workspace_id: uuid.UUID, file: UploadFile, db: DbSession, membership: EditorandAbove
 ):
-    doc=await file_upload(workspace_id=workspace_id,file=file,db=db)
+    doc = await file_upload(workspace_id=workspace_id, file=file, db=db)
     return doc
-    
 
 
-@router.get(
-    "", response_model=ListResponse, status_code=status.HTTP_200_OK
-)
+@router.get("", response_model=ListResponse, status_code=status.HTTP_200_OK)
 async def get_list_of_document(
     filter_query: Annotated[ListRequest, Query()],
     db: DbSession,
     membership: AnyRole,
     workspace_id: uuid.UUID,
 ):
-    list_of_docs=await list_of_documents(db=db,workspace_id=workspace_id,filter_query=filter_query)
+    list_of_docs = await list_of_documents(
+        db=db, workspace_id=workspace_id, filter_query=filter_query
+    )
     return list_of_docs
-    
 
 
 @router.get(
@@ -53,7 +47,7 @@ async def get_list_of_document(
 async def get_document(
     workspace_id: uuid.UUID, document_id: uuid.UUID, db: DbSession, membership: AnyRole
 ):
-    document=await get_a_document(workspace_id=workspace_id,document_id=document_id,db=db)
+    document = await get_a_document(workspace_id=workspace_id, document_id=document_id, db=db)
     return document
 
 
@@ -61,4 +55,4 @@ async def get_document(
 async def delete_document(
     db: DbSession, workspace_id: uuid.UUID, document_id: uuid.UUID, membership: EditorandAbove
 ):
-    await delete_a_document(db=db,workspace_id=workspace_id,document_id=document_id)
+    await delete_a_document(db=db, workspace_id=workspace_id, document_id=document_id)

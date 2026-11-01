@@ -2,14 +2,18 @@ import uuid
 from typing import Annotated
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
 
 from app.db import DbSession
+from app.exceptions import (
+    NotFound,
+    UnAuthenticatedClient,
+    UnAuthorizedClient,
+)
 from app.models import Membership, Role, User, ranking
 from app.security import decode_access_token
-from app.exceptions import UnAuthenticatedClient,UnAuthorizedClient,NotFound,Conflict,TooLarge,UnsupportedType
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
@@ -20,9 +24,7 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db: Db
     #     detail="Could not validate credentials",
     #     headers={"WWW-Authenticate": "Bearer"},
     # )
-    credentials_error=UnAuthenticatedClient(
-        message="Could not validate credentials"
-    )
+    credentials_error = UnAuthenticatedClient(message="Could not validate credentials")
     try:
         user_id = decode_access_token(token)
     except jwt.InvalidTokenError, ValueError:
@@ -44,14 +46,10 @@ def require_role(minimum_role: Role):
         membership = (await db.execute(stmt)).scalar_one_or_none()
 
         if membership is None:
-            raise NotFound(
-                message="Workspace not found"
-            )
+            raise NotFound(message="Workspace not found")
             # raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workspace not found")
         if ranking[membership.role] < ranking[minimum_role]:
-            raise UnAuthorizedClient(
-                message="You don't have permission to do this."
-            )
+            raise UnAuthorizedClient(message="You don't have permission to do this.")
             # raise HTTPException(
             #     status_code=status.HTTP_403_FORBIDDEN,
             #     detail="You don't have permission to do this.",

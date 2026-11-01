@@ -1,25 +1,18 @@
 import uuid
-from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, UploadFile, status
+from fastapi import HTTPException, UploadFile, status
 from sqlalchemy import delete, func, select
 
 from app.config import settings
-from app.deps import AnyRole, DbSession, EditorandAbove
+from app.deps import DbSession
+from app.exceptions import NotFound, TooLarge, UnsupportedType
 from app.models import Document, DocumentStatus
-from app.schemas import (
-    DocumentResponse,
-    ListRequest,
-    ListResponse,
-)
+from app.schemas import DocumentResponse, ListResponse
 from app.services.storage import StorageService
-from app.exceptions import NotFound,TooLarge,UnsupportedType
 
 
-
-async def file_upload(file:UploadFile,workspace_id:uuid.UUID,db:DbSession)->DocumentResponse:
+async def file_upload(file: UploadFile, workspace_id: uuid.UUID, db: DbSession) -> DocumentResponse:
     if file.size == 0:
-            
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="file is empty"
         )
@@ -30,10 +23,10 @@ async def file_upload(file:UploadFile,workspace_id:uuid.UUID,db:DbSession)->Docu
 
     try:
         file_type = storage.verify_file_type(file.file)
-    except ValueError: #use raise X from None in except block to hide low-level internal errors and to remove extra traceback
+    except ValueError:  # use raise X from None in except block to hide low-level internal errors and to remove extra traceback
         raise UnsupportedType(
             message="wrong type of file, or content doesn't match extension."
-        )
+        ) from None
         # raise HTTPException(
         #     status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
         #     detail="wrong type of file, or content doesn't match extension.",
@@ -41,20 +34,14 @@ async def file_upload(file:UploadFile,workspace_id:uuid.UUID,db:DbSession)->Docu
     if file_type == "text/plain" and file.filename.lower().endswith(
         ".pdf"
     ):  # important verification
-        raise UnsupportedType(
-                    message="wrong type of file, or content doesn't match extension."
-                )
+        raise UnsupportedType(message="wrong type of file, or content doesn't match extension.")
     if file_type == "application/pdf" and file.filename.lower().endswith(".txt"):
-        raise UnsupportedType(
-                    message="wrong type of file, or content doesn't match extension."
-                )
+        raise UnsupportedType(message="wrong type of file, or content doesn't match extension.")
     if (
         file.filename.lower().endswith(".txt") is False
         and file.filename.lower().endswith(".pdf") is False
     ):
-        raise UnsupportedType(
-                    message="wrong type of file, or content doesn't match extension."
-                )
+        raise UnsupportedType(message="wrong type of file, or content doesn't match extension.")
     clean_name = storage.clean_display_name(file.filename)
     document_id = uuid.uuid4()
     relative_path = await storage.save_file(
@@ -77,15 +64,14 @@ async def file_upload(file:UploadFile,workspace_id:uuid.UUID,db:DbSession)->Docu
     except Exception as e:
         await db.rollback()
         await storage.delete_file(relative_path)
-        raise RuntimeError(
-            "Failed to save record document to the database"
-        ) from e
+        raise RuntimeError("Failed to save record document to the database") from e
         # raise HTTPException(
         #     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         #     detail="Failed to save record document to the database",
         # ) from e
 
-async def list_of_documents(db:DbSession,filter_query,workspace_id:uuid.UUID)->ListResponse:
+
+async def list_of_documents(db: DbSession, filter_query, workspace_id: uuid.UUID) -> ListResponse:
     # query=select(Document).where(Document.workspace_id==workspace_id).order_by(Document.created_at.desc()).limit(filter_query.limit).offset(filter_query.offset)#offset=20:skips the first 20 rows
     # result=await db.execute(query)
     # document_list=result.scalars().all()
@@ -119,14 +105,14 @@ async def list_of_documents(db:DbSession,filter_query,workspace_id:uuid.UUID)->L
     }
 
 
-async def get_a_document(document_id:uuid.UUID,db:DbSession,workspace_id:uuid.UUID)->DocumentResponse:
+async def get_a_document(
+    document_id: uuid.UUID, db: DbSession, workspace_id: uuid.UUID
+) -> DocumentResponse:
     stmt = select(Document).where(Document.id == document_id, Document.workspace_id == workspace_id)
     result = await db.execute(stmt)
     document = result.scalar_one_or_none()
     if document is None:
-        raise NotFound(
-            message=f"document with id:{document_id} doesn't exist in this workspace"
-        )
+        raise NotFound(message=f"document with id:{document_id} doesn't exist in this workspace")
         # raise HTTPException(
         #     status_code=status.HTTP_404_NOT_FOUND,
         #     detail=f"document with id:{document_id} doesn't exist in this workspace",
@@ -134,14 +120,12 @@ async def get_a_document(document_id:uuid.UUID,db:DbSession,workspace_id:uuid.UU
     return document
 
 
-async def delete_a_document(db:DbSession,workspace_id:uuid.UUID,document_id:uuid.UUID):
+async def delete_a_document(db: DbSession, workspace_id: uuid.UUID, document_id: uuid.UUID):
     stmt = select(Document).where(Document.id == document_id, Document.workspace_id == workspace_id)
     document = await db.scalar(stmt)
 
     if not document:
-        raise NotFound(
-                    message=f"document with id:{document_id} doesn't exist in this workspace"
-                )
+        raise NotFound(message=f"document with id:{document_id} doesn't exist in this workspace")
         # raise HTTPException(
         #     status_code=status.HTTP_404_NOT_FOUND,
         #     detail=f"document with id:{document_id} not found",

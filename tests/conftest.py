@@ -64,6 +64,18 @@ async def db_session(test_engine, client):
 
 
 @pytest.fixture
+def upload_file(upload_client):
+    async def _upload_file(filename, content, workspace_id, headers):
+        files = {"file": (filename, content, "text/plain")}
+        result = await upload_client.post(
+            f"/workspaces/{workspace_id}/documents", files=files, headers=headers
+        )
+        return result
+
+    return _upload_file
+
+
+@pytest.fixture
 async def registered_user(client):
     response = await client.post(
         "/auth/register", json={"email": "satvik@example.com", "password": "password123"}
