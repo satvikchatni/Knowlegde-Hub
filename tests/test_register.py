@@ -33,4 +33,4 @@ async def test_duplicate_email(client):
     )
     assert response2.status_code == 409
     body = response2.json()
-    assert "Email already registered" in body["detail"]
+    assert "Email already registered" in body["message"]

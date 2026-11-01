@@ -13,6 +13,7 @@ from app.models import RefreshToken, User
 from app.schemas import RefreshRequest, RegisterRequest, TokenResponse, UserResponse
 from app.security import create_access_token, hash_password, hash_token, verify_password
 from app.services.refresh_tokens import issue_refresh_token, revoke_family
+from app.exceptions import UnAuthenticatedClient,Conflict
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -27,10 +28,13 @@ async def register(body: RegisterRequest, db: DbSession):
         await db.refresh(user)
     except IntegrityError:
         await db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Email already registered",
-        ) from None
+        raise Conflict(
+            message="Email already registered"
+        )
+        # raise HTTPException(
+        #     status_code=status.HTTP_409_CONFLICT,
+        #     detail="Email already registered",
+        # ) from None
     return user
 
 
@@ -47,12 +51,12 @@ async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db: 
     hashed_password = user.password_hash if user else DUMMY_HASH
     if not user or not await asyncio.to_thread(
         verify_password, form_data.password, hashed_password
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    ):  raise UnAuthenticatedClient(message="Invalid email or password",headers={"WWW-Authenticate": "Bearer"})
+        # raise HTTPException(
+        #     status_code=status.HTTP_401_UNAUTHORIZED,
+        #     detail="Invalid email or password",
+        #     headers={"WWW-Authenticate": "Bearer"},
+        # )
     access_token = create_access_token(user.id)
     refresh_token = issue_refresh_token(db, user.id)
     await db.commit()  # Commit the new refresh token to the database
@@ -66,11 +70,12 @@ async def get_current_user(current_user: CurrentUser):
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh(body: RefreshRequest, db: DbSession):
-    invalid = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid refresh token",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+    # invalid = HTTPException(
+    #     status_code=status.HTTP_401_UNAUTHORIZED,
+    #     detail="Invalid refresh token",
+    #     headers={"WWW-Authenticate": "Bearer"},
+    # )
+    invalid = UnAuthenticatedClient(message="Invalid refresh token",headers={"WWW-Authenticate": "Bearer"})
     stored = await db.scalar(
         select(RefreshToken).where(RefreshToken.token_hash == hash_token(body.refresh_token))
     )

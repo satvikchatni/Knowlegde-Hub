@@ -5,11 +5,11 @@ from app.config import settings
 
 async def test_login_success(client):
     reg = await client.post(
-        "/auth/register", json={"email": "asha@example.com", "password": "password123"}
+        "/auth/register", json={"email": "satvik@example.com", "password": "password123"}
     )
     user = reg.json()
     response = await client.post(
-        "/auth/login", data={"username": "asha@example.com", "password": "password123"}
+        "/auth/login", data={"username": "satvik@example.com", "password": "password123"}
     )
     assert response.status_code == 200
     token = response.json()["access_token"]
@@ -20,14 +20,14 @@ async def test_login_success(client):
 async def test_login_wrong_password(client):
 
     response = await client.post(
-        "/auth/login", data={"username": "asha@example.com", "password": "wrongpassword"}
+        "/auth/login", data={"username": "satvik@example.com", "password": "wrongpassword"}
     )
     assert response.status_code == 401
 
 
 async def test_login_missing_fields(client):
 
-    response = await client.post("/auth/login", data={"username": "asha@example.com"})
+    response = await client.post("/auth/login", data={"username": "satvik@example.com"})
     assert response.status_code == 422
 
 
@@ -41,9 +41,9 @@ async def test_long_wrong_email(client):
 
 async def test_login_same_email(client):
     await client.post(
-        "/auth/register", json={"email": "asha@example.com", "password": "password123"}
+        "/auth/register", json={"email": "satvik@example.com", "password": "password123"}
     )
     response = await client.post(
-        "/auth/login", data={"username": "ASHA@example.com", "password": "password123"}
+        "/auth/login", data={"username": "SATVIK@example.com", "password": "password123"}
     )
     assert response.status_code == 200

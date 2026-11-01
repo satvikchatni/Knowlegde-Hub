@@ -5,12 +5,13 @@ from typing import Annotated
 from fastapi import Depends, FastAPI,Request
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+import logging
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.exceptions import HTTPException as StarletteException
 
 from app.db import engine, get_db
-from app.routers import auth, workspaces
+from app.routers import auth, workspaces,documents
 from app.exceptions import AppError
 
 @asynccontextmanager
@@ -22,6 +23,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(lifespan=lifespan)
 app.include_router(auth.router)
 app.include_router(workspaces.router)
+app.include_router(documents.router)
 
 @app.exception_handler(AppError)
 async def app_error_handler(request:Request,exc:AppError):#request is mandatory even if we don't use it
@@ -47,6 +49,8 @@ async def validation_error_handler(request:Request,exc:RequestValidationError):
         },
         status_code=422
     )
+
+logger=logging.getLogger("app")
 
 @app.exception_handler(Exception)
 async def unexpected_error_handler(request:Request,exc:Exception):

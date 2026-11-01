@@ -27,7 +27,7 @@ async def test_me_without_token(client):
 
 
 async def test_me_with_garbage_token(client):
-    response = await client.get("/auth/me", headers={"Authorization": "Bearer not.a.token"})
+    response = await client.get("/auth/me", headers={"Authorization": "Bearer garbage.token"})
     assert response.status_code == 401
 
 
