@@ -14,53 +14,23 @@ from app.schemas import RefreshRequest, RegisterRequest, TokenResponse, UserResp
 from app.security import create_access_token, hash_password, hash_token, verify_password
 from app.services.refresh_tokens import issue_refresh_token, revoke_family
 from app.exceptions import UnAuthenticatedClient,Conflict
+from app.services.auth import register_user,login_user,refresh_route,logout_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(body: RegisterRequest, db: DbSession):
-    password_hash = await asyncio.to_thread(hash_password, body.password)
-    user = User(email=body.email.lower(), password_hash=password_hash)
-    try:
-        db.add(user)
-        await db.commit()
-        await db.refresh(user)
-    except IntegrityError:
-        await db.rollback()
-        raise Conflict(
-            message="Email already registered"
-        )
-        # raise HTTPException(
-        #     status_code=status.HTTP_409_CONFLICT,
-        #     detail="Email already registered",
-        # ) from None
+    user=await register_user(db=db,body=body)
     return user
 
 
-DUMMY_HASH = hash_password("dummy_password")
 
-
-# if user is None ,the hashing never runs. A login for an unknown email comes back much faster than one for a real email with a wrong password, and anyone can time that difference to find out which emails have accounts.
-# hence we hash using dummy password
 @router.post("/login", response_model=TokenResponse)
 async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db: DbSession):
-    query = select(User).where(User.email == form_data.username.lower())
-    result = await db.execute(query)
-    user = result.scalar()
-    hashed_password = user.password_hash if user else DUMMY_HASH
-    if not user or not await asyncio.to_thread(
-        verify_password, form_data.password, hashed_password
-    ):  raise UnAuthenticatedClient(message="Invalid email or password",headers={"WWW-Authenticate": "Bearer"})
-        # raise HTTPException(
-        #     status_code=status.HTTP_401_UNAUTHORIZED,
-        #     detail="Invalid email or password",
-        #     headers={"WWW-Authenticate": "Bearer"},
-        # )
-    access_token = create_access_token(user.id)
-    refresh_token = issue_refresh_token(db, user.id)
-    await db.commit()  # Commit the new refresh token to the database
-    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+    token_response=await login_user(form_data=form_data,db=db)
+    return token_response
+    
 
 
 @router.get("/me", response_model=UserResponse)
@@ -70,39 +40,10 @@ async def get_current_user(current_user: CurrentUser):
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh(body: RefreshRequest, db: DbSession):
-    # invalid = HTTPException(
-    #     status_code=status.HTTP_401_UNAUTHORIZED,
-    #     detail="Invalid refresh token",
-    #     headers={"WWW-Authenticate": "Bearer"},
-    # )
-    invalid = UnAuthenticatedClient(message="Invalid refresh token",headers={"WWW-Authenticate": "Bearer"})
-    stored = await db.scalar(
-        select(RefreshToken).where(RefreshToken.token_hash == hash_token(body.refresh_token))
-    )
-    if stored is None:
-        raise invalid
-    if stored.revoked_at is not None:
-        # already used: possibly stolen, so end every session from this login
-        await revoke_family(db, stored.family_id)
-        await db.commit()  # must happen before the raise, or the revoke is lost
-        raise invalid
-    if stored.expires_at <= datetime.now(UTC):
-        raise invalid
-
-    # rotation: the old token dies, a new one in the same family replaces it
-    stored.revoked_at = datetime.now(UTC)
-    new_refresh_token = issue_refresh_token(db, stored.user_id, stored.family_id)
-    await db.commit()
-    return TokenResponse(
-        access_token=create_access_token(stored.user_id), refresh_token=new_refresh_token
-    )
+    refresh_response=await refresh_route(body=body,db=db)
+    return refresh_response
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(body: RefreshRequest, db: DbSession) -> None:
-    stored = await db.scalar(
-        select(RefreshToken).where(RefreshToken.token_hash == hash_token(body.refresh_token))
-    )
-    if stored is not None:  # unknown token: do nothing and say nothing
-        await revoke_family(db, stored.family_id)
-        await db.commit()
+    await logout_user(db=db,body=body)
