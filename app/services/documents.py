@@ -2,20 +2,23 @@ import uuid
 
 from fastapi import HTTPException, UploadFile, status
 from sqlalchemy import delete, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.deps import DbSession
-from app.exceptions import NotFound, TooLarge, UnsupportedType
+from app.exceptions import NotFound, TooLarge, UnsupportedType, Conflict
 from app.models import Document, DocumentStatus
 from app.schemas import DocumentResponse, ListResponse
 from app.services.storage import StorageService
 
 
-async def file_upload(file: UploadFile, workspace_id: uuid.UUID, db: DbSession) -> DocumentResponse:
+async def file_upload(file: UploadFile, workspace_id: uuid.UUID, db: AsyncSession) -> DocumentResponse:
     if file.size == 0:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="file is empty"
+        raise Conflict(
+           "file is empty"
         )
+        # raise HTTPException(
+        #     status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="file is empty"
+        # )
     if file.size > (settings.max_upload_mb * 1024 * 1024):  # convert megabytes in settings to bytes
         raise TooLarge(message="file too large")
         # raise HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail="file too large")
@@ -71,7 +74,7 @@ async def file_upload(file: UploadFile, workspace_id: uuid.UUID, db: DbSession) 
         # ) from e
 
 
-async def list_of_documents(db: DbSession, filter_query, workspace_id: uuid.UUID) -> ListResponse:
+async def list_of_documents(db: AsyncSession, filter_query, workspace_id: uuid.UUID) -> ListResponse:
     # query=select(Document).where(Document.workspace_id==workspace_id).order_by(Document.created_at.desc()).limit(filter_query.limit).offset(filter_query.offset)#offset=20:skips the first 20 rows
     # result=await db.execute(query)
     # document_list=result.scalars().all()
@@ -106,7 +109,7 @@ async def list_of_documents(db: DbSession, filter_query, workspace_id: uuid.UUID
 
 
 async def get_a_document(
-    document_id: uuid.UUID, db: DbSession, workspace_id: uuid.UUID
+    document_id: uuid.UUID, db: AsyncSession, workspace_id: uuid.UUID
 ) -> DocumentResponse:
     stmt = select(Document).where(Document.id == document_id, Document.workspace_id == workspace_id)
     result = await db.execute(stmt)
@@ -120,7 +123,7 @@ async def get_a_document(
     return document
 
 
-async def delete_a_document(db: DbSession, workspace_id: uuid.UUID, document_id: uuid.UUID):
+async def delete_a_document(db: AsyncSession, workspace_id: uuid.UUID, document_id: uuid.UUID):
     stmt = select(Document).where(Document.id == document_id, Document.workspace_id == workspace_id)
     document = await db.scalar(stmt)
 

@@ -2,8 +2,8 @@ import uuid
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.deps import DbSession
 from app.exceptions import Conflict, NotFound
 from app.models import Membership, Role, User, WorkSpace
 from app.schemas import (
@@ -14,7 +14,7 @@ from app.schemas import (
 )
 
 
-async def make_workspace(db: DbSession, body: WorkSpaceCreate, user) -> WorkSpaceResponse:
+async def make_workspace(db: AsyncSession, body: WorkSpaceCreate, user) -> WorkSpaceResponse:
     workspace_name = body.name
     workspace = WorkSpace(name=workspace_name)
     db.add(workspace)
@@ -32,7 +32,7 @@ async def make_workspace(db: DbSession, body: WorkSpaceCreate, user) -> WorkSpac
     }
 
 
-async def retrieve_workspaces(db: DbSession, user) -> list[WorkSpaceResponse]:
+async def retrieve_workspaces(db: AsyncSession, user) -> list[WorkSpaceResponse]:
     query = (
         select(WorkSpace, Membership.role)
         .join(Membership, Membership.workspace_id == WorkSpace.id)
@@ -54,7 +54,7 @@ async def retrieve_workspaces(db: DbSession, user) -> list[WorkSpaceResponse]:
     return output
 
 
-async def retrieve_single_workspace(db: DbSession, user, workspace_id: uuid.UUID):
+async def retrieve_single_workspace(db: AsyncSession, user, workspace_id: uuid.UUID):
     query = (
         select(WorkSpace, Membership.role)
         .join(Membership, WorkSpace.id == Membership.workspace_id)
@@ -77,7 +77,7 @@ async def retrieve_single_workspace(db: DbSession, user, workspace_id: uuid.UUID
     }
 
 
-async def add_to_workspace(db: DbSession, body: MemberAdd, membership) -> MemberResponse:
+async def add_to_workspace(db: AsyncSession, body: MemberAdd, membership) -> MemberResponse:
     query = select(User).where(User.email == body.email.lower())
     target_user = (await db.execute(query)).scalar_one_or_none()
     if target_user is None:

@@ -91,3 +91,19 @@ class Document(Base):
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), server_default=text("now()")
     )
+
+class Chunk(Base):
+    __tablename__="chunk"
+    id: Mapped[uuid.UUID]=mapped_column(
+        primary_key=True,default=uuid.uuid4
+    )
+    document_id: Mapped[uuid.UUID]=mapped_column(
+        ForeignKey("documents.id",ondelete="cascade"),index=True
+    )
+    workspace_id: Mapped[uuid.UUID]=mapped_column(
+        ForeignKey("workspace.id",ondelete="cascade"),index=True
+    )
+    position: Mapped[int]=mapped_column()
+    page_number: Mapped[int|None]=mapped_column(nullable=True)
+    text: Mapped[str]=mapped_column()
+    __table_args__=(UniqueConstraint("document_id","position",name="documentid_position_uc"),)

@@ -3,8 +3,8 @@ from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db import DbSession
 from app.exceptions import Conflict, UnAuthenticatedClient
 from app.models import RefreshToken, User
 from app.schemas import RefreshRequest, RegisterRequest, TokenResponse, UserResponse
@@ -14,7 +14,8 @@ from app.services.refresh_tokens import issue_refresh_token, revoke_family
 
 # main benefit of moving logic code into services is that you can test these functions directly instead of sending requests through a client(can test independently of HTTP)
 # also reusability, cleaner routers are big advantages
-async def register_user(db: DbSession, body: RegisterRequest) -> UserResponse:
+#a service should take a plain AsyncSession
+async def register_user(db: AsyncSession, body: RegisterRequest) -> UserResponse:
     password_hash = await asyncio.to_thread(hash_password, body.password)
     user = User(email=body.email.lower(), password_hash=password_hash)
     try:
@@ -36,7 +37,7 @@ DUMMY_HASH = hash_password("dummy_password")
 
 # if user is None ,the hashing never runs. A login for an unknown email comes back much faster than one for a real email with a wrong password, and anyone can time that difference to find out which emails have accounts.
 # hence we hash using dummy password
-async def login_user(db: DbSession, form_data) -> TokenResponse:
+async def login_user(db: AsyncSession, form_data) -> TokenResponse:
     query = select(User).where(User.email == form_data.username.lower())
     result = await db.execute(query)
     user = result.scalar()
@@ -58,7 +59,7 @@ async def login_user(db: DbSession, form_data) -> TokenResponse:
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 
-async def refresh_route(db: DbSession, body: RefreshRequest) -> TokenResponse:
+async def refresh_route(db: AsyncSession, body: RefreshRequest) -> TokenResponse:
     # invalid = HTTPException(
     #     status_code=status.HTTP_401_UNAUTHORIZED,
     #     detail="Invalid refresh token",
@@ -89,7 +90,7 @@ async def refresh_route(db: DbSession, body: RefreshRequest) -> TokenResponse:
     )
 
 
-async def logout_user(db: DbSession, body: RefreshRequest) -> None:
+async def logout_user(db: AsyncSession, body: RefreshRequest) -> None:
     stored = await db.scalar(
         select(RefreshToken).where(RefreshToken.token_hash == hash_token(body.refresh_token))
     )
