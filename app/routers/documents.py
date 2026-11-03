@@ -1,16 +1,19 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Query, UploadFile, status
-
-from app.deps import AnyRole, DbSession, EditorandAbove
+from fastapi import APIRouter, Query, UploadFile, status, Depends,  BackgroundTasks
+from sqlalchemy.ext.asyncio import async_sessionmaker,AsyncSession
+from sqlalchemy import select
+from app.deps import AnyRole, DbSession, EditorandAbove, get_session_factory
+from app.exceptions import NotFound,Conflict
+from app.models import Document
 from app.schemas import (
     DocumentResponse,
     ListRequest,
     ListResponse,
 )
 from app.services.documents import delete_a_document, file_upload, get_a_document, list_of_documents
-
+from app.services.processing import process_document
 router = APIRouter(prefix="/workspaces/{workspace_id}/documents", tags=["documents"])
 
 
@@ -20,9 +23,10 @@ router = APIRouter(prefix="/workspaces/{workspace_id}/documents", tags=["documen
     response_model=DocumentResponse,
 )
 async def upload_file(
-    workspace_id: uuid.UUID, file: UploadFile, db: DbSession, membership: EditorandAbove
+    workspace_id: uuid.UUID, file: UploadFile, db: DbSession, membership: EditorandAbove,background_tasks:BackgroundTasks,factory:Annotated[async_sessionmaker[AsyncSession],Depends(get_session_factory)]
 ):
     doc = await file_upload(workspace_id=workspace_id, file=file, db=db)
+    background_tasks.add_task(process_document,document_id=doc.id,session_factory=factory)
     return doc
 
 
@@ -56,3 +60,19 @@ async def delete_document(
     db: DbSession, workspace_id: uuid.UUID, document_id: uuid.UUID, membership: EditorandAbove
 ):
     await delete_a_document(db=db, workspace_id=workspace_id, document_id=document_id)
+
+
+@router.post("/{document_id}/retry",status_code=status.HTTP_202_ACCEPTED)
+async def retry(db:DbSession,workspace_id:uuid.UUID,document_id:uuid.UUID,membership:EditorandAbove,background_tasks:BackgroundTasks,factory:Annotated[async_sessionmaker[AsyncSession],Depends(get_session_factory)]):
+    stmt=select(Document).where(Document.workspace_id==workspace_id,Document.id==document_id)
+    document=(await db.execute(stmt)).scalar_one_or_none()
+    if document is None:
+        raise NotFound(f"Document with id {document_id} doesnt exist in workspace with id:{workspace_id}")
+    if document.status=="error":
+        document.status="queued"
+        document.error_message=None
+        await db.commit()
+        background_tasks.add_task(process_document,document_id=document_id,session_factory=factory)
+        return document
+    else:
+        raise Conflict("Document can only be retried if it's status is error")
