@@ -153,9 +153,7 @@ async def test_run_job_twice(
         select(Chunk).where(Chunk.document_id == document.id, Chunk.workspace_id == workspace["id"])
     )
     chunks1 = r1.scalars().all()
-    await process_document(
-        document_id=doc_response.json()["id"], session_factory=session_factory
-    )
+    await process_document(document_id=doc_response.json()["id"], session_factory=session_factory)
     r2 = await db_session.execute(
         select(Chunk).where(Chunk.document_id == document.id, Chunk.workspace_id == workspace["id"])
     )
