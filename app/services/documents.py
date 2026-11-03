@@ -1,21 +1,21 @@
 import uuid
 
-from fastapi import HTTPException, UploadFile, status
+from fastapi import UploadFile
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.exceptions import NotFound, TooLarge, UnsupportedType, Conflict
+from app.exceptions import Conflict, NotFound, TooLarge, UnsupportedType
 from app.models import Document, DocumentStatus
 from app.schemas import DocumentResponse, ListResponse
 from app.services.storage import StorageService
 
 
-async def file_upload(file: UploadFile, workspace_id: uuid.UUID, db: AsyncSession) -> DocumentResponse:
+async def file_upload(
+    file: UploadFile, workspace_id: uuid.UUID, db: AsyncSession
+) -> DocumentResponse:
     if file.size == 0:
-        raise Conflict(
-           "file is empty"
-        )
+        raise Conflict("file is empty")
         # raise HTTPException(
         #     status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="file is empty"
         # )
@@ -74,7 +74,9 @@ async def file_upload(file: UploadFile, workspace_id: uuid.UUID, db: AsyncSessio
         # ) from e
 
 
-async def list_of_documents(db: AsyncSession, filter_query, workspace_id: uuid.UUID) -> ListResponse:
+async def list_of_documents(
+    db: AsyncSession, filter_query, workspace_id: uuid.UUID
+) -> ListResponse:
     # query=select(Document).where(Document.workspace_id==workspace_id).order_by(Document.created_at.desc()).limit(filter_query.limit).offset(filter_query.offset)#offset=20:skips the first 20 rows
     # result=await db.execute(query)
     # document_list=result.scalars().all()

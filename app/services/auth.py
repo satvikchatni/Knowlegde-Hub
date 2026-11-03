@@ -14,7 +14,7 @@ from app.services.refresh_tokens import issue_refresh_token, revoke_family
 
 # main benefit of moving logic code into services is that you can test these functions directly instead of sending requests through a client(can test independently of HTTP)
 # also reusability, cleaner routers are big advantages
-#a service should take a plain AsyncSession
+# a service should take a plain AsyncSession
 async def register_user(db: AsyncSession, body: RegisterRequest) -> UserResponse:
     password_hash = await asyncio.to_thread(hash_password, body.password)
     user = User(email=body.email.lower(), password_hash=password_hash)

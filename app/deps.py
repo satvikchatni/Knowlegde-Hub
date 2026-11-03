@@ -5,8 +5,9 @@ import jwt
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from app.db import DbSession
+from app.db import DbSession, engine
 from app.exceptions import (
     NotFound,
     UnAuthenticatedClient,
@@ -63,3 +64,10 @@ def require_role(minimum_role: Role):
 AnyRole = Annotated[Membership, Depends(require_role(Role.VIEWER))]
 EditorandAbove = Annotated[Membership, Depends(require_role(Role.EDITOR))]
 Owner = Annotated[Membership, Depends(require_role(Role.OWNER))]
+
+
+real_factory = async_sessionmaker(bind=engine, expire_on_commit=False)
+
+
+def get_session_factory():
+    return real_factory

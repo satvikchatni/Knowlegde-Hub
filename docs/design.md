@@ -138,11 +138,11 @@ owner > editor > viewer. Each role can do anything the lower ones can.
 ## Errors
 | Situation | Code | error | message |
 |---|---|---|---|
-| Not logged in. | 401 | not_authenticated | Please login first. |
-| Member,but role too low. | 403 | forbidden | You don't have permission to do this. |
+| Not logged in. | 401 | unauthenticated_client_error | Please login first. |
+| Member,but role too low. | 403 | unauthorized_client_error | You don't have permission to do this. |
 | Workspace or document doesn't exist. | 404 | not_found | Document/Workspace not found. |
 | Request itself is wrong. | 422 | validation_error | Email is required. |
-| Conflict: email already registered, user already in the workspace | 409 | conflict | Email already registered. |
+| Conflict: email already registered, user already in the workspace | 409 | conflict_error | Email already registered. |
 | File too large | 413 | file_too_large | file exceeds fixed limit. |
 | Wrong or mismatched file type | 415 | unsupported_media_type | Unsupported or mismatched file type. |
 

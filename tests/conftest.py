@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.config import settings
 from app.db import Base, get_db
+from app.deps import get_session_factory
 from app.main import app
 from app.models import Role
 
@@ -40,17 +41,24 @@ async def test_engine():
 
 
 @pytest.fixture
-async def client(test_engine):
+async def session_factory(test_engine):
+    return async_sessionmaker(bind=test_engine, expire_on_commit=False)
+
+
+@pytest.fixture
+async def client(test_engine, session_factory):
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
-    session_factory = async_sessionmaker(test_engine, expire_on_commit=False)
 
     async def override_get_db():
         async with session_factory() as session:
             yield session
 
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_session_factory] = lambda: (
+        session_factory
+    )  # bg tasks only require a seperate session,not a seperate session factory
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as test_client:
         yield test_client
     app.dependency_overrides.clear()

@@ -35,7 +35,7 @@ async def test_file_upload_exception_error(db_session, monkeypatch):
         await file_upload(db=db_session, workspace_id=123, file=fake_file)
 
 
-async def test_txt_file_upload(upload_client, make_user, make_workspace, tmp_path,upload_file):
+async def test_txt_file_upload(upload_client, make_user, make_workspace, tmp_path, upload_file):
     owner = await make_user("owner@example.com")
     workspace = await make_workspace(workspace_name="testws", user_headers=owner["headers"])
     workspace_id = workspace["id"]
@@ -103,7 +103,7 @@ async def test_empty_file(upload_client, make_user, make_workspace):
     response = await upload_client.post(
         f"/workspaces/{workspace_id}/documents", headers=owner["headers"], files=files
     )
-    assert response.status_code == 409 #made use of our own error Conflict
+    assert response.status_code == 409  # made use of our own error Conflict
 
 
 async def test_no_file(upload_client, make_user, make_workspace):
@@ -227,7 +227,13 @@ async def test_matrix_file_delete(
     "role,expected_status_code", [("viewer", 200), ("editor", 200), ("stranger", 404)]
 )
 async def test_get_one_document(
-    upload_client, make_user, make_workspace, make_membership, role, expected_status_code,upload_file
+    upload_client,
+    make_user,
+    make_workspace,
+    make_membership,
+    role,
+    expected_status_code,
+    upload_file,
 ):
     owner = await make_user("owner@example.com")
     workspace = await make_workspace(workspace_name="testws", user_headers=owner["headers"])
@@ -290,7 +296,9 @@ async def test_delete_a_document(
     assert deletion2.status_code == 404
 
 
-async def test_get_list_of_docs(upload_client, make_user, make_workspace, make_membership,upload_file):
+async def test_get_list_of_docs(
+    upload_client, make_user, make_workspace, make_membership, upload_file
+):
     # first workspace and its documents
     owner1 = await make_user("owner1@example.com")
     workspace1 = await make_workspace(workspace_name="testws", user_headers=owner1["headers"])
