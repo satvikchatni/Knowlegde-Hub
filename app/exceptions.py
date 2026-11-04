@@ -42,3 +42,16 @@ class TooLarge(AppError):
 class UnsupportedType(AppError):
     status_code = 415
     code = "unsupported_media_type"
+
+
+class DocumentProcessingError(AppError):
+    status_code=422
+    code="document_processing_error"
+
+class PasswordProtected(AppError):
+    status_code=403
+    code="file_password_protected"
+
+class InvalidFile(AppError):
+    status_code=400
+    code="invalid_file"

@@ -7,7 +7,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.config import settings
-from app.exceptions import Conflict, UnsupportedType
+from app.exceptions import Conflict, UnsupportedType,PasswordProtected,InvalidFile
 from app.models import Chunk, Document
 from app.services.chunking import chunk_text
 from app.services.extraction import file_extraction
@@ -57,7 +57,7 @@ async def process_document(
             document.status = "done"
             document.error_message = None
             await s.commit()
-        except (Conflict, UnsupportedType, ValueError) as e:
+        except (InvalidFile,PasswordProtected, UnsupportedType) as e:#user-defined errors only,cause ValueError,etc would display techincal text too.
             await (
                 s.rollback()
             )  # after rollback, ORM objects are expired, so we have to retrieve them again
@@ -69,12 +69,12 @@ async def process_document(
             document.error_message = str(e)
             await s.commit()
         except Exception:
-            logger.exception("Ran into unexpected error")
+            logger.exception(f"Ran into unexpected error with document:{document_id}")
             await s.rollback()  # again, rollback expires the ORM objects retrieval is necessary
             stmt = select(Document).where(Document.id == document_id)
             document = (await s.execute(stmt)).scalar_one_or_none()
             if document is None:
-                return s
+                return 
             document.status = "error"
             document.error_message = "looking into it,fix will be on the way"
             await s.commit()
