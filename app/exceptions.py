@@ -44,9 +44,9 @@ class UnsupportedType(AppError):
     code = "unsupported_media_type"
 
 
-class DocumentProcessingError(AppError):
-    status_code=422
-    code="document_processing_error"
+# class DocumentProcessingError(AppError):
+#     status_code=422
+#     code="document_processing_error"
 
 class PasswordProtected(AppError):
     status_code=403
@@ -55,3 +55,7 @@ class PasswordProtected(AppError):
 class InvalidFile(AppError):
     status_code=400
     code="invalid_file"
+
+class EmbedderDimMismatchError(AppError):
+    status_code=400
+    code="dimension_mismatch"

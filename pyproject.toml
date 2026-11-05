@@ -15,6 +15,7 @@ dependencies = [
     "pyjwt>=2.15.1",
     "pypdf>=6.21.4",
     "python-multipart>=0.0.32",
+    "qdrant-client[fastembed]>=1.14.2",
     "sqlalchemy[asyncio]>=2.1.4",
     "uvicorn[standard]>=0.54.0",
 ]

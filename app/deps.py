@@ -2,11 +2,11 @@ import uuid
 from typing import Annotated
 
 import jwt
-from fastapi import Depends
+from fastapi import Depends,Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
-
+from app.services.base_embedder import BaseEmbedder
 from app.db import DbSession, engine
 from app.exceptions import (
     NotFound,
@@ -71,3 +71,6 @@ real_factory = async_sessionmaker(bind=engine, expire_on_commit=False)
 
 def get_session_factory():
     return real_factory
+
+def get_embedder(request:Request)->BaseEmbedder:
+    return request.app.state.embedder

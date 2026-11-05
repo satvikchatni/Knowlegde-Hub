@@ -5,7 +5,8 @@ from httpx2 import ASGITransport, AsyncClient
 from pydantic import EmailStr
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-
+from app.deps import get_embedder
+from app.services.local_embedder import FakeEmbedder
 from app.config import settings
 from app.db import Base, get_db
 from app.deps import get_session_factory
@@ -28,6 +29,7 @@ async def _ensure_test_database() -> None:
         )
         if not exists:
             await conn.execute(text(f'CREATE DATABASE "{TEST_DB_NAME}"'))
+        
     await admin_engine.dispose()
 
 
@@ -36,6 +38,10 @@ async def test_engine():
     assert TEST_DB_NAME.endswith("_test")  # safety guard for the days we start wiping tables
     await _ensure_test_database()
     engine = create_async_engine(TEST_DB_URL)
+    async with engine.connect() as conn:
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))#bcz extensions for postgres are database-specific, if you start a brand new database, it starts off completely blank even though pgvector is installed in your computer where you main application dev is
+        await conn.commit()
+
     yield engine
     await engine.dispose()
 
@@ -54,12 +60,15 @@ async def client(test_engine, session_factory):
     async def override_get_db():
         async with session_factory() as session:
             yield session
-
+    fake_embedder=FakeEmbedder()
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_session_factory] = lambda: (
         session_factory
     )  # bg tasks only require a seperate session,not a seperate session factory
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as test_client:
+    app.dependency_overrides[get_embedder]= lambda: (
+        fake_embedder
+    )
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as test_client:#ASGI doesn't run lifespan, so the real LocalEmbedder will not be initialized
         yield test_client
     app.dependency_overrides.clear()
 
