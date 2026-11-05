@@ -7,16 +7,17 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.config import settings
-from app.exceptions import Conflict, UnsupportedType,PasswordProtected,InvalidFile
+from app.exceptions import Conflict, UnsupportedType,PasswordProtected,InvalidFile, EmbedderDimMismatchError
 from app.models import Chunk, Document
 from app.services.chunking import chunk_text
 from app.services.extraction import file_extraction
+from app.services.base_embedder import BaseEmbedder
 
 logger = logging.getLogger(__name__)  # __name__ identifies the module, makes logs easier to trace
 
 
 async def process_document(
-    document_id: uuid.UUID, session_factory: async_sessionmaker[AsyncSession]
+    document_id: uuid.UUID, session_factory: async_sessionmaker[AsyncSession],embedder:BaseEmbedder
 ):  # [] indicates what type of object the factory creates
     async with session_factory() as s:
         stmt = select(Document).where(Document.id == document_id)
@@ -51,6 +52,22 @@ async def process_document(
                     )
                     new_chunks.append(chunk)
                     position += 1
+            list_of_chunk_texts=[chunk.text for chunk in new_chunks]#extracts text from each chunk object
+            batch_size=settings.embedding_batch_size#gets the configured batch size
+            vectors=[]
+            for start in range(0,len(list_of_chunk_texts),batch_size):#gets the starting index
+                batch=list_of_chunk_texts[start:start+batch_size]#slicing extracts each batch
+                vectors_of_batch=await embedder.embed_documents(texts=batch,is_query=False)
+                if len(vectors_of_batch)!=len(batch):
+                    raise ValueError("Batch size doesn't equal the vectors returned for that batch")
+                #.append() list of batches, .extend() list of flat vectors
+                vectors.extend(vectors_of_batch) #.extend(vectors_of_batch) appends each vector indivifually to the main list,.append(vectors_of_batch) would add an entire batch as an nested list
+            if len(vectors)!=len(list_of_chunk_texts):
+                raise ValueError("number of vectors returned doesn;t equal the number of chunks sent.")
+            
+
+
+            
             # delete old chunks
             await s.execute(delete(Chunk).where(Chunk.document_id == document_id))
             s.add_all(new_chunks)  # add entire list we use add_all

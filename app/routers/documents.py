@@ -15,7 +15,8 @@ from app.schemas import (
 )
 from app.services.documents import delete_a_document, file_upload, get_a_document, list_of_documents
 from app.services.processing import process_document
-
+from app.services.base_embedder import BaseEmbedder
+from app.deps import get_embedder
 router = APIRouter(prefix="/workspaces/{workspace_id}/documents", tags=["documents"])
 
 
@@ -31,9 +32,10 @@ async def upload_file(
     membership: EditorandAbove,
     background_tasks: BackgroundTasks,
     factory: Annotated[async_sessionmaker[AsyncSession], Depends(get_session_factory)],
+    embedder:Annotated[BaseEmbedder,Depends(get_embedder)]
 ):
     doc = await file_upload(workspace_id=workspace_id, file=file, db=db)
-    background_tasks.add_task(process_document, document_id=doc.id, session_factory=factory)
+    background_tasks.add_task(process_document, document_id=doc.id, session_factory=factory,embedder=embedder)
     return doc
 
 
