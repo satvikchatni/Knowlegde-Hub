@@ -7,7 +7,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.config import settings
-from app.exceptions import Conflict, UnsupportedType,PasswordProtected,InvalidFile, EmbedderDimMismatchError
+from app.exceptions import Conflict, UnsupportedType,PasswordProtected,InvalidFile
 from app.models import Chunk, Document
 from app.services.chunking import chunk_text
 from app.services.extraction import file_extraction
@@ -64,10 +64,9 @@ async def process_document(
                 vectors.extend(vectors_of_batch) #.extend(vectors_of_batch) appends each vector indivifually to the main list,.append(vectors_of_batch) would add an entire batch as an nested list
             if len(vectors)!=len(list_of_chunk_texts):
                 raise ValueError("number of vectors returned doesn;t equal the number of chunks sent.")
-            
-
-
-            
+            #zip() pairs two lists at the same position
+            for chunk,vector in zip(new_chunks,vectors):#new_chunks ORM object,vectors it's corresponding embedding
+                chunk.embedding=vector
             # delete old chunks
             await s.execute(delete(Chunk).where(Chunk.document_id == document_id))
             s.add_all(new_chunks)  # add entire list we use add_all

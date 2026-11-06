@@ -45,8 +45,11 @@ class LocalEmbedder(BaseEmbedder):
 class FakeEmbedder(BaseEmbedder):
     def __init__(self,expected_dim_size:int=384):
         self.expected_dim_size=expected_dim_size
+        self.batch_sizes=[]
 
     async def embed_documents(self,texts:list[str],is_query:bool)->list[list[float]]:
+        self.batch_sizes.append(len(texts))
+
         if not texts:
             return []
 
@@ -58,5 +61,14 @@ class FakeEmbedder(BaseEmbedder):
                 vec[h%self.expected_dim_size]+= 1.0 if (h>>8) & 1 else -1.0
             norm=math.sqrt(sum(x*x for x in vec)) or 1.0
             vectors.append([x/norm for x in vec])
-        
+
         return vectors
+
+class FailingEmbedder(BaseEmbedder):#for tests
+    async def embed_documents(self,texts:list[str],is_query:bool=False):
+        raise RuntimeError("OOPS") #this will mimic and embedder failure and should give "error" with no chunks
+
+class WrongDimEmbedder(BaseEmbedder):#for tests again
+    async def embed_documents(self,texts:list[str],is_query:bool=False):
+        return [[0.1]*381 for _ in texts]
+    

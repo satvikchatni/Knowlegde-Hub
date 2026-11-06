@@ -50,9 +50,12 @@ async def test_engine():
 async def session_factory(test_engine):
     return async_sessionmaker(bind=test_engine, expire_on_commit=False)
 
+@pytest.fixture
+def fake_embedder():
+    return FakeEmbedder()
 
 @pytest.fixture
-async def client(test_engine, session_factory):
+async def client(test_engine, session_factory,fake_embedder):
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
@@ -60,14 +63,11 @@ async def client(test_engine, session_factory):
     async def override_get_db():
         async with session_factory() as session:
             yield session
-    fake_embedder=FakeEmbedder()
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_session_factory] = lambda: (
         session_factory
     )  # bg tasks only require a seperate session,not a seperate session factory
-    app.dependency_overrides[get_embedder]= lambda: (
-        fake_embedder
-    )
+    app.dependency_overrides[get_embedder]= lambda: fake_embedder
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as test_client:#ASGI doesn't run lifespan, so the real LocalEmbedder will not be initialized
         yield test_client
     app.dependency_overrides.clear()

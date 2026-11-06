@@ -17,8 +17,8 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 7
     upload_dir: str = "storage"
     max_upload_mb: int = 10
-    chunk_size: int = 20
-    chunk_overlap: int = 5
+    chunk_size: int = 1000
+    chunk_overlap: int = 150
     embedding_batch_size: int=32
     expected_dimension_size: int=384
 
