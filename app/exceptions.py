@@ -48,18 +48,22 @@ class UnsupportedType(AppError):
 #     status_code=422
 #     code="document_processing_error"
 
+
 class PasswordProtected(AppError):
-    status_code=403
-    code="file_password_protected"
+    status_code = 403
+    code = "file_password_protected"
+
 
 class InvalidFile(AppError):
-    status_code=400
-    code="invalid_file"
+    status_code = 400
+    code = "invalid_file"
+
 
 class EmbedderDimMismatchError(AppError):
-    status_code=400
-    code="dimension_mismatch"
+    status_code = 400
+    code = "dimension_mismatch"
+
 
 class EmbeddingServiceUnavailable(AppError):
-    status_code=503
-    code="service_unavailable"
+    status_code = 503
+    code = "service_unavailable"

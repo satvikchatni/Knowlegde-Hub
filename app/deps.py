@@ -2,11 +2,11 @@ import uuid
 from typing import Annotated
 
 import jwt
-from fastapi import Depends,Request
+from fastapi import Depends, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
-from app.services.base_embedder import BaseEmbedder
+
 from app.db import DbSession, engine
 from app.exceptions import (
     NotFound,
@@ -15,6 +15,7 @@ from app.exceptions import (
 )
 from app.models import Membership, Role, User, ranking
 from app.security import decode_access_token
+from app.services.base_embedder import BaseEmbedder
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
@@ -72,5 +73,6 @@ real_factory = async_sessionmaker(bind=engine, expire_on_commit=False)
 def get_session_factory():
     return real_factory
 
-def get_embedder(request:Request)->BaseEmbedder:
+
+def get_embedder(request: Request) -> BaseEmbedder:
     return request.app.state.embedder

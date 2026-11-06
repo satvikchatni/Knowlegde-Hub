@@ -2,9 +2,10 @@ import uuid
 from datetime import datetime
 from enum import StrEnum
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import TIMESTAMP, Enum, ForeignKey, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
-from pgvector.sqlalchemy import Vector
+
 from app.db import Base
 
 
@@ -106,6 +107,8 @@ class Chunk(Base):
     position: Mapped[int] = mapped_column()
     page_number: Mapped[int | None] = mapped_column(nullable=True)
     text: Mapped[str] = mapped_column()
-    embedding:Mapped[list[float]|None]=mapped_column(Vector(384),nullable=True)
-    model_name:Mapped[str|None]=mapped_column() #if we change models later,this will be our safety net.
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(384), nullable=True)
+    model_name: Mapped[str | None] = (
+        mapped_column()
+    )  # if we change models later,this will be our safety net.
     __table_args__ = (UniqueConstraint("document_id", "position", name="documentid_position_uc"),)

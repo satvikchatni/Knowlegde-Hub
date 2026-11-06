@@ -5,13 +5,13 @@ from httpx2 import ASGITransport, AsyncClient
 from pydantic import EmailStr
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-from app.deps import get_embedder
-from app.services.local_embedder import FakeEmbedder
+
 from app.config import settings
 from app.db import Base, get_db
-from app.deps import get_session_factory
+from app.deps import get_embedder, get_session_factory
 from app.main import app
 from app.models import Role
+from app.services.local_embedder import FakeEmbedder
 
 # Tests are run on "<your database>_test", never on your real development database.
 TEST_DB_NAME = f"{settings.database_name}_test"
@@ -29,7 +29,7 @@ async def _ensure_test_database() -> None:
         )
         if not exists:
             await conn.execute(text(f'CREATE DATABASE "{TEST_DB_NAME}"'))
-        
+
     await admin_engine.dispose()
 
 
@@ -39,7 +39,9 @@ async def test_engine():
     await _ensure_test_database()
     engine = create_async_engine(TEST_DB_URL)
     async with engine.connect() as conn:
-        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))#bcz extensions for postgres are database-specific, if you start a brand new database, it starts off completely blank even though pgvector is installed in your computer where you main application dev is
+        await conn.execute(
+            text("CREATE EXTENSION IF NOT EXISTS vector")
+        )  # bcz extensions for postgres are database-specific, if you start a brand new database, it starts off completely blank even though pgvector is installed in your computer where you main application dev is
         await conn.commit()
 
     yield engine
@@ -50,12 +52,14 @@ async def test_engine():
 async def session_factory(test_engine):
     return async_sessionmaker(bind=test_engine, expire_on_commit=False)
 
+
 @pytest.fixture
 def fake_embedder():
     return FakeEmbedder()
 
+
 @pytest.fixture
-async def client(test_engine, session_factory,fake_embedder):
+async def client(test_engine, session_factory, fake_embedder):
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
@@ -63,12 +67,15 @@ async def client(test_engine, session_factory,fake_embedder):
     async def override_get_db():
         async with session_factory() as session:
             yield session
+
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_session_factory] = lambda: (
         session_factory
     )  # bg tasks only require a seperate session,not a seperate session factory
-    app.dependency_overrides[get_embedder]= lambda: fake_embedder
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as test_client:#ASGI doesn't run lifespan, so the real LocalEmbedder will not be initialized
+    app.dependency_overrides[get_embedder] = lambda: fake_embedder
+    async with (
+        AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as test_client
+    ):  # ASGI doesn't run lifespan, so the real LocalEmbedder will not be initialized
         yield test_client
     app.dependency_overrides.clear()
 

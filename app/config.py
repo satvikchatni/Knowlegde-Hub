@@ -19,8 +19,8 @@ class Settings(BaseSettings):
     max_upload_mb: int = 10
     chunk_size: int = 1000
     chunk_overlap: int = 150
-    embedding_batch_size: int=32
-    expected_dimension_size: int=384
+    embedding_batch_size: int = 32
+    expected_dimension_size: int = 384
 
     # app refuses to start if below functions condition is False
     @model_validator(

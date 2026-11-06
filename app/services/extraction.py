@@ -1,16 +1,16 @@
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
-from app.exceptions import Conflict, UnsupportedType,PasswordProtected,InvalidFile
+from app.exceptions import InvalidFile, PasswordProtected, UnsupportedType
 
 
 def file_extraction(file_path: str):
     if str(file_path).lower().endswith(".txt"):
         with (
-            open(file_path,encoding="utf-8") as file
+            open(file_path, encoding="utf-8") as file
         ):  # with statement closes the file for you,wo with you would have to close the file too
             content = file.read()
-            if not content or not content.strip():# for blank .txt documents
+            if not content or not content.strip():  # for blank .txt documents
                 raise InvalidFile("no readable text")
             return [{"page_number": 1, "text": content}]
     elif str(file_path).lower().endswith(".pdf"):

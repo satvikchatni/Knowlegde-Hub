@@ -82,15 +82,17 @@ class ListResponse(BaseModel):
     offset: int
     status: str | None = None
 
+
 class SearchParams(BaseModel):
-    q:str=Field(min_length=1,max_length=500)
-    limit:int=Field(5,ge=1,le=20)
+    q: str = Field(min_length=1, max_length=500)
+    limit: int = Field(5, ge=1, le=20)
+
 
 class SearchOut(BaseModel):
-    chunk_id:uuid.UUID
-    document_id:uuid.UUID
-    filename:str
-    page_number:int
-    position:int
-    text:str
-    score :float
+    chunk_id: uuid.UUID
+    document_id: uuid.UUID
+    filename: str
+    page_number: int
+    position: int
+    text: str
+    score: float

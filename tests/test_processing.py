@@ -129,7 +129,7 @@ async def test_empty_pdf_file_processing(
 
 
 async def test_run_job_twice(
-    db_session, make_user, make_workspace, tmp_path, upload_file, session_factory
+    db_session, make_user, make_workspace, tmp_path, upload_file, session_factory, fake_embedder
 ):
     owner = await make_user("pdfowner@example.com")
     workspace = await make_workspace(workspace_name="testws", user_headers=owner["headers"])
@@ -153,7 +153,11 @@ async def test_run_job_twice(
         select(Chunk).where(Chunk.document_id == document.id, Chunk.workspace_id == workspace["id"])
     )
     chunks1 = r1.scalars().all()
-    await process_document(document_id=doc_response.json()["id"], session_factory=session_factory)
+    await process_document(
+        document_id=doc_response.json()["id"],
+        session_factory=session_factory,
+        embedder=fake_embedder,
+    )
     r2 = await db_session.execute(
         select(Chunk).where(Chunk.document_id == document.id, Chunk.workspace_id == workspace["id"])
     )
