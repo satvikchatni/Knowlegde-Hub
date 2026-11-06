@@ -59,3 +59,7 @@ class InvalidFile(AppError):
 class EmbedderDimMismatchError(AppError):
     status_code=400
     code="dimension_mismatch"
+
+class EmbeddingServiceUnavailable(AppError):
+    status_code=503
+    code="service_unavailable"
