@@ -17,3 +17,12 @@ services:
 
 volumes:
   db_data:
+
+
+
+
+
+
+#docker commands for reference
+#docker compose up -d , docker-tells your computer to use docker, compose-works with the services defined in compose file, up-creates and starts the containers if necessary,d-detached mode ,the containers run in the background and terminal is free to use
+#docker compose ps, lists currently running docker containers,ps-process status

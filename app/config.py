@@ -1,4 +1,4 @@
-from typing import Self
+from typing import Self,Literal
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -21,7 +21,8 @@ class Settings(BaseSettings):
     chunk_overlap: int = 150
     embedding_batch_size: int = 32
     expected_dimension_size: int = 384
-
+    embedder_backend: Literal["local","fake"]="local" #Literal : only "local" or "fake" is allowed
+    embedding_model:str="BAAI/bge-small-en"
     # app refuses to start if below functions condition is False
     @model_validator(
         mode="after"

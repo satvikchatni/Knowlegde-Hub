@@ -13,10 +13,14 @@ from starlette.exceptions import HTTPException as StarletteException
 from app.db import engine, get_db
 from app.exceptions import AppError
 from app.routers import auth, documents, workspaces
+from app.services.local_embedder import LocalEmbedder
+import asyncio
+#a normal context manager would be with open("exmaple.txt") as f: it opens the file,you work with it and python closes it automatically.
+#@asynccontexrmanager is a decorator from contextlib which allows you to write asynchronous context managers using async and yield.
 
-
-@asynccontextmanager
+@asynccontextmanager#everything before yield is setup,after yield is cleanup and yield marks the point where the appln can run.
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    app.state.embedder=await asyncio.to_thread(LocalEmbedder) #model loading can involve expensive sync work
     yield
     await engine.dispose()
 

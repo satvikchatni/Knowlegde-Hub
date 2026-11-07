@@ -3,7 +3,7 @@ import asyncio
 import hashlib
 import math
 import re
-
+from app.config import settings
 from fastembed import TextEmbedding
 
 from app.exceptions import EmbedderDimMismatchError
@@ -16,7 +16,7 @@ from app.services.base_embedder import BaseEmbedder
 
 class LocalEmbedder(BaseEmbedder):
     def __init__(
-        self, model_name: str = "BAAI/bge-small-en", expected_dim_size: int = 384
+        self, model_name: str = settings.embedding_model, expected_dim_size: int=settings.expected_dimension_size
     ):  # setup code that runs once when your machine is turned on.
         self.expected_dim_size = expected_dim_size
 
