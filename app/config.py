@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     embedder_backend: Literal["local","fake"]="local" #Literal : only "local" or "fake" is allowed
     embedding_model:str="BAAI/bge-small-en"
     api_key:SecretStr
-    llm_model:str
+    llm_model:str="gemini-3.8-flash"
     llm_timeout_seconds:int=20
     llm_max_retries:int=2
     llm_max_tokens:int
