@@ -94,6 +94,6 @@ async def logout_user(db: AsyncSession, body: RefreshRequest) -> None:
     stored = await db.scalar(
         select(RefreshToken).where(RefreshToken.token_hash == hash_token(body.refresh_token))
     )
-    if stored is not None:  # unknown token: do nothing and say nothing
+    if stored is not None: #token exists :nuke the token family tree
         await revoke_family(db, stored.family_id)
         await db.commit()

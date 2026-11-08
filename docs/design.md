@@ -97,7 +97,32 @@ Needs the editor role; a non-member gets 404.
 - Deleting a document deletes the row first, then the file; a missing file is fine.
 - A document is only reachable through its own workspace: a mismatched id gives 404.
 
-### 5. Pagination
+### 5.Embeddings and Semantic Search
+
+- Embedding Model
+- Model: BAAI/bge-small-en
+- Embedding Dimension: 384
+- Each document chunk is converted into a 384 dimensional vector
+- The user's search query is converted to a vector using the same model
+- Changing embedding model required re-embedding all documents because vectors from other models may not be compatible.
+
+- Embedding during ingestion
+- Chunks are embedded during ingestion.
+- Embeddings are generated in batches rather than one chunk at a time.
+- Batch size is configurable(default set 32)mcan be customized to meet specific needs
+- Each chunk's embedding is stored alongside it's text in PostreSQL using pgvector
+
+- Search endpoint
+- Available to any workspace member
+- Converts query into a embedding and compares it with stored chunk embeddings using cosine distance
+- Results are ordered by closest match
+- Each result includes chunk text,page number,position, similarity score(1-distance)
+
+- Search Strategy
+- Start with exact  search
+- An overly restrictive search can remove relevant data before the ranking takes place, this is the overfiltering problem observed 
+
+### 6. Pagination
 Lists use 'limit' (default 20, 1 to 100) and 'offset' (default 0), newest first, optional 'status'
 filter. The response is '{items, total, limit, offset}'.
 
@@ -134,6 +159,8 @@ owner > editor > viewer. Each role can do anything the lower ones can.
 | DELETE | /workspaces/{workspace_id}/documents/{document_id} | editor | deletes a document | 204 |
 | POST | /workspaces/{workspace_id}/ask | any member | asks a question | 200 |
 | POST | /workspaces/{workspace_id}/documents/{document_id}/retry | editor | runs processing again for a document whose status is 'error' | 202 |
+| GET | /workspaces/{workspace_id}/search | any member | Searches documents chunks using semantic similarity | 200 |
+
 
 ## Errors
 | Situation | Code | error | message |

@@ -4,7 +4,7 @@ import hashlib
 import math
 import re
 from app.config import settings
-from fastembed import TextEmbedding
+#from fastembed import TextEmbedding :at top of file fastembed is imported whenever local_embedder.py is imported
 
 from app.exceptions import EmbedderDimMismatchError
 from app.services.base_embedder import BaseEmbedder
@@ -17,7 +17,9 @@ from app.services.base_embedder import BaseEmbedder
 class LocalEmbedder(BaseEmbedder):
     def __init__(
         self, model_name: str = settings.embedding_model, expected_dim_size: int=settings.expected_dimension_size
-    ):  # setup code that runs once when your machine is turned on.
+    ):  
+        from fastembed import TextEmbedding#called a lazy import, fastembed is only imported when you actually construct LocalEmbedder
+         # setup code that runs once when your machine is turned on.
         self.expected_dim_size = expected_dim_size
 
         self.model = TextEmbedding(model_name=model_name)
@@ -60,6 +62,8 @@ class LocalEmbedder(BaseEmbedder):
         return vectors
 
 
+
+#backend choice for CI.
 class FakeEmbedder(BaseEmbedder):
     def __init__(self, expected_dim_size: int = 384):
         self.expected_dim_size = expected_dim_size
@@ -83,13 +87,3 @@ class FakeEmbedder(BaseEmbedder):
         return vectors
 
 
-class FailingEmbedder(BaseEmbedder):  # for tests
-    async def embed_documents(self, texts: list[str], is_query: bool = False):
-        raise RuntimeError(
-            "OOPS"
-        )  # this will mimic and embedder failure and should give "error" with no chunks
-
-
-class WrongDimEmbedder(BaseEmbedder):  # for tests again
-    async def embed_documents(self, texts: list[str], is_query: bool = False):
-        return [[0.1] * 381 for _ in texts]

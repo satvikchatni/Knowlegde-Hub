@@ -5,7 +5,7 @@ from app.config import settings
 from app.deps import get_embedder
 from app.main import app
 from app.models import Chunk, Document
-from app.services.local_embedder import FailingEmbedder, WrongDimEmbedder
+from tests.fakes import FailingEmbedder, WrongDimEmbedder
 
 
 def create_file(tmp_path):

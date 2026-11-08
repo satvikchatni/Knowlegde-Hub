@@ -3,6 +3,8 @@ from typing import Annotated
 
 import jwt
 from fastapi import Depends, Request
+
+#requires python-multipart to be installed, uv add "fastapi[standard]" python-multipart, because the Oauth2 specifications require the authentication endpoint to receive form data instead of JSON.
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
@@ -17,7 +19,8 @@ from app.models import Membership, Role, User, ranking
 from app.security import decode_access_token
 from app.services.base_embedder import BaseEmbedder
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+#Oauth2PasswordBearer is used to extract the token from the Authorization headers of a HTTP request.
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")#tokenUrl where exactly the client/user is supposed to be sending the credentials
 
 
 async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db: DbSession) -> User:
