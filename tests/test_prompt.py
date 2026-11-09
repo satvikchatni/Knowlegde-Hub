@@ -73,3 +73,16 @@ def test_build_prompt_escaping():
     message=build_user_message(question=question,chunks=[malicious_chunk])
     print(message)
     assert "&lt;/context&gt;" in message
+
+def test_build_prompt_includes_best_chunk_exceeding_char_budget(monkeypatch):
+    monkeypatch.setattr(settings,"ask_top_chunks",1)
+    monkeypatch.setattr(settings,"ask_max_context_characters",10)
+    question="when is Satviks bday"
+    message=build_user_message(question=question,chunks=[chunk1, chunk2])
+    print(message)
+    assert str(chunk1.chunk_id) in message
+    assert chunk1.text in message
+    assert question in message
+    assert str(chunk2.chunk_id) not in message
+    assert chunk2.text not in message  
+    assert len(chunk1.text)>settings.ask_max_context_characters 

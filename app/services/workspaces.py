@@ -1,10 +1,11 @@
 import uuid
-
+from app.services.prompt import build_user_message,llm_response_parse,filter_citations
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Annotated
 from fastapi import Depends
+import logging
 from app.deps import get_embedder
 from app.services.base_embedder import  BaseEmbedder
 from app.exceptions import Conflict, NotFound, EmbeddingServiceUnavailable
@@ -14,8 +15,15 @@ from app.schemas import (
     MemberResponse,
     WorkSpaceCreate,
     WorkSpaceResponse,
+    SearchParams,
+    Ask,
+    SearchOut
 )
+from app.services.base_llm import LLMClient
+from app.services.prompt import system_prompt,llm_response_parse,filter_citations
+from app.config import settings
 
+logger=logging.getLogger("app")
 
 async def make_workspace(db: AsyncSession, body: WorkSpaceCreate, user) -> WorkSpaceResponse:
     workspace_name = body.name
@@ -104,7 +112,7 @@ async def add_to_workspace(db: AsyncSession, body: MemberAdd, membership) -> Mem
 
 
 #retrieval function,retrieves the most relevant chunks...
-async def search_workspace(db,filter_params,workspace_id:uuid.UUID,embedder):
+async def retrieve(db,filter_params,workspace_id:uuid.UUID,embedder):
     try:
         vectors = await embedder.embed_documents(texts=[filter_params.q], is_query=True)
         if len(vectors) != 1:
@@ -143,15 +151,54 @@ async def search_workspace(db,filter_params,workspace_id:uuid.UUID,embedder):
         return []
     result = []
     for row in rows:
-        item = {
-            "chunk_id": row.id,
-            "document_id": row.document_id,
-            "filename": row.filename,
-            "page_number": row.page_number,
-            "position": row.position,
-            "text": row.text,
-            "score": 1.0
+        item = SearchOut(
+            chunk_id=row.id,
+            document_id=row.document_id,
+            filename=row.filename,
+            page_number=row.page_number,
+            position=row.position,
+            text=row.text,
+            score= 1.0
             - float(row.distance),  # score equals similarity more the similarity,the better
-        }
+        )
+            
+    
         result.append(item)
     return result
+
+
+async def ask(db,workspace_id:uuid.UUID,embedder,ask_params:Ask,llm:LLMClient):
+    relevant_chunks=await retrieve(db=db,filter_params=SearchParams(q=ask_params.question,limit=settings.ask_top_chunks),workspace_id=workspace_id,embedder=embedder)
+    if not relevant_chunks: #if no relevant chunks
+        return {
+            "answer":"I don't know the answer based on the provided documents",
+            "citations":[]
+        }
+        
+    message=build_user_message(question=ask_params.question,chunks=relevant_chunks)
+    llm_ans=await llm.generate(system=system_prompt,message=message)
+    validated_llm_ans=llm_response_parse(response=llm_ans.generated_text)
+    valid_cited_ids=filter_citations(cited_ids=validated_llm_ans.cited_ids,chunks=relevant_chunks)
+    if len(valid_cited_ids)==0: #if gemini provides no valid chunk ids
+         return {
+            "answer":"I don't know the answer based on the provided documents",
+            "citations":[]
+        }       
+    citation_details=[]
+    for chunk in relevant_chunks:
+        if str(chunk.chunk_id) in valid_cited_ids:
+            c={
+                "chunk_id":chunk.chunk_id,
+                "document_id":chunk.document_id,
+                "filename":chunk.filename,
+                "page_number":chunk.page_number,
+                "snippet": chunk.text[:20]  #snippet of the chunk text till 20th character
+            }
+            citation_details.append(c)
+    
+    logger.info(f"LLM token usage,Input token usage= {llm_ans.input_token_usage}, Output token usage={llm_ans.output_token_usage}")
+    return {
+        "answer":validated_llm_ans.answer,
+        "citations":citation_details
+    }
+

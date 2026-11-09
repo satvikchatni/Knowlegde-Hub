@@ -1,7 +1,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, status,Body
 from sqlalchemy import select
 
 from app.deps import AnyRole, CurrentUser, DbSession, Owner, get_embedder
@@ -14,6 +14,8 @@ from app.schemas import (
     SearchParams,
     WorkSpaceCreate,
     WorkSpaceResponse,
+    Ask,
+    AskOut
 )
 from app.services.base_embedder import BaseEmbedder
 from app.services.workspaces import (
@@ -21,8 +23,11 @@ from app.services.workspaces import (
     make_workspace,
     retrieve_single_workspace,
     retrieve_workspaces,
-    search_workspace
+    retrieve,
+    ask
 )
+from app.services.base_llm import LLMClient
+from app.deps import get_llm
 
 router = APIRouter(prefix="/workspaces", tags=["workspaces"])
 
@@ -65,5 +70,20 @@ async def search(
     membership: AnyRole,
     embedder:Annotated[BaseEmbedder, Depends(get_embedder)]
 ):
-    return await search_workspace(db=db,workspace_id=workspace_id,filter_params=filter_params,embedder=embedder)
+    return await retrieve(db=db,workspace_id=workspace_id,filter_params=filter_params,embedder=embedder)
 
+
+
+
+@router.post("/{workspace_id}/ask",status_code=status.HTTP_200_OK,response_model=AskOut)
+async def ask_question(
+    db: DbSession,
+    workspace_id: uuid.UUID,
+    membership: AnyRole,
+    embedder:Annotated[BaseEmbedder, Depends(get_embedder)],
+    llm:Annotated[LLMClient,Depends(get_llm)],
+    ask_params:Annotated[Ask, Body()] #/ask sud receive a JSON request body like {"question":"....."}
+
+):
+    answer=await ask(db=db,workspace_id=workspace_id,embedder=embedder,llm=llm,ask_params=ask_params)
+    return answer

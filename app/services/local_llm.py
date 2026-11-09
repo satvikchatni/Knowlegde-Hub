@@ -2,7 +2,9 @@ from app.services.base_llm import LLMClient
 from app.schemas import LLMResponse
 from google import genai
 from app.config import settings
-from google.genai import types
+from google.genai import types,errors
+from app.exceptions import LLMTimeout,LLMUnavailable
+import httpx2
 
 #Since both classes below have the same return type the application can use either without caring which one it is...
 class GeminiLLM(LLMClient):
@@ -15,13 +17,19 @@ class GeminiLLM(LLMClient):
                                  http_options=types.HttpOptions(timeout=settings.llm_timeout_seconds*1000,
                                 retry_options=types.HttpRetryOptions(attempts=settings.llm_max_retries+1))).aio 
     async def generate(self,system:str,message:str)->LLMResponse:
-        interaction= await self.client.interactions.create(
-            model=self.model,
-            system_instruction=system,
-            input=message
-        )
-        return LLMResponse(generated_text=interaction.output_text,input_token_usage=interaction.usage.total_input_tokens,output_token_usage=interaction.usage.total_output_tokens)
-
+        try:
+            interaction= await self.client.interactions.create(
+                model=self.model,
+                system_instruction=system,
+                input=message
+            )
+            return LLMResponse(generated_text=interaction.output_text,input_token_usage=interaction.usage.total_input_tokens,output_token_usage=interaction.usage.total_output_tokens)
+        except httpx2.TimeoutException as e:
+            raise LLMTimeout("LLM took too long to respond") from e 
+        except errors.APIError as e: #API-level error,gemini received request but responded with an error,maybe too many requests , gemini service unavailable
+            raise LLMUnavailable("LLM responded with an error") from e
+        except httpx2.HTTPError as e :#HTTP transport-level error, problem while communicating over HTTP, connection error or network-related errors
+            raise LLMUnavailable("HTTP transport communication error") from e
 
 class FakeLLM(LLMClient):
     def __init__(self):

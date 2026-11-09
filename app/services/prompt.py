@@ -23,7 +23,7 @@ def build_user_message(question:str,chunks:list[SearchOut]):
         id=str(chunk.chunk_id)
         text=str(chunk.text)
 
-        if (count_of_chars+len(text))>settings.ask_max_context_characters or (count_of_chunks+1)>settings.ask_top_chunks:
+        if ((count_of_chars+len(text))>settings.ask_max_context_characters or (count_of_chunks+1)>settings.ask_top_chunks) and count_of_chunks>=1:#we always have to include 1st chunk(best one), even tho it's greater than budget
             break
         count_of_chars+=len(text)
         count_of_chunks+=1
@@ -58,3 +58,18 @@ def llm_response_parse(response:str):
 #exception chaining
 # ... as e stores the original exception in e
 # raise ... from e links: custom exception to original exception
+
+
+#Making sure the cited ids aren't made up or mentioned more than once
+def filter_citations(cited_ids:list[str],chunks:list[SearchOut]):
+    seen=set() #valid retrieved ids
+    for chunk in chunks:
+        seen.add(str(chunk.chunk_id))
+
+    valid_cited_ids=[]
+    added=set() #ids already included 
+    for chunk_id in cited_ids:
+        if chunk_id in seen and chunk_id not in added:
+            valid_cited_ids.append(chunk_id)
+            added.add(chunk_id)
+    return valid_cited_ids

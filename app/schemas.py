@@ -107,3 +107,18 @@ class LLMResponse(BaseModel):
 class LLMAnswer(BaseModel):
     answer:str=Field(min_length=1)
     cited_ids:list[str]
+
+class Ask(BaseModel):
+    model_config=ConfigDict(str_strip_whitespace=True)
+    question:str=Field(min_length=1,max_length=500)
+
+class CitationSchema(BaseModel):
+    chunk_id:uuid.UUID
+    document_id:uuid.UUID
+    page_number:int
+    filename:str
+    snippet:str
+
+class AskOut(BaseModel):
+    answer:str
+    citations:list[CitationSchema]
