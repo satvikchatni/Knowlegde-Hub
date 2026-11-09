@@ -96,3 +96,13 @@ class SearchOut(BaseModel):
     position: int
     text: str
     score: float
+
+#what gemini returns to app
+class LLMResponse(BaseModel):
+    generated_text:str
+    input_token_usage:int
+    output_token_usage:int
+
+#the structured answer Gemini generates
+class LLMAnswer(BaseModel):
+    pass

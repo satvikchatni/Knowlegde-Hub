@@ -8,7 +8,7 @@ from fastapi import Depends, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
-
+from app.services.base_llm import LLMClient
 from app.db import DbSession, engine
 from app.exceptions import (
     NotFound,
@@ -76,6 +76,14 @@ real_factory = async_sessionmaker(bind=engine, expire_on_commit=False)
 def get_session_factory():
     return real_factory
 
+#Request is a object that contains information about the incoming HTTP request.
+#app instance isn't automatically available in every function
+#FastAPI knows how to provide Request immediately as a paramter
+#request.app acesses the fastapi application handling the request
+
 
 def get_embedder(request: Request) -> BaseEmbedder:
     return request.app.state.embedder
+
+def get_llm(request:Request)->LLMClient:
+    return request.app.state.llm

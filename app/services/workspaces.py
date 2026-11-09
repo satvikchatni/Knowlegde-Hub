@@ -102,6 +102,8 @@ async def add_to_workspace(db: AsyncSession, body: MemberAdd, membership) -> Mem
         # ) from None
 
 
+
+#retrieval function,retrieves the most relevant chunks...
 async def search_workspace(db,filter_params,workspace_id:uuid.UUID,embedder):
     try:
         vectors = await embedder.embed_documents(texts=[filter_params.q], is_query=True)

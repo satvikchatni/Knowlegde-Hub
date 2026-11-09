@@ -1,4 +1,4 @@
-from base_llm import LLMClient
+from app.services.base_llm import LLMClient
 from app.schemas import LLMResponse
 from google import genai
 from app.config import settings
