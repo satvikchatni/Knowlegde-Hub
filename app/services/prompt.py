@@ -40,6 +40,7 @@ def build_user_message(question:str,chunks:list[SearchOut]):
 # .loads() converts that to {"answer":"<text>","cited_ids":["<id1>","<id2>",...,"<idn>"]} , which is a python dict
 def llm_response_parse(response:str):
     #handling markdown fences
+    response=response.strip()
     if response.startswith("```json"):
         response=response.removeprefix("```json")
     elif response.startswith("```"):
