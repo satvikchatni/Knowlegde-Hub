@@ -1,33 +1,29 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, status,Body
-from sqlalchemy import select
+from fastapi import APIRouter, Body, Depends, Query, status
 
-from app.deps import AnyRole, CurrentUser, DbSession, Owner, get_embedder
-from app.exceptions import EmbeddingServiceUnavailable
-from app.models import Chunk, Document
+from app.deps import AnyRole, CurrentUser, DbSession, Owner, get_embedder, get_llm
 from app.schemas import (
+    Ask,
+    AskOut,
     MemberAdd,
     MemberResponse,
     SearchOut,
     SearchParams,
     WorkSpaceCreate,
     WorkSpaceResponse,
-    Ask,
-    AskOut
 )
 from app.services.base_embedder import BaseEmbedder
+from app.services.base_llm import LLMClient
 from app.services.workspaces import (
     add_to_workspace,
+    ask,
     make_workspace,
+    retrieve,
     retrieve_single_workspace,
     retrieve_workspaces,
-    retrieve,
-    ask
 )
-from app.services.base_llm import LLMClient
-from app.deps import get_llm
 
 router = APIRouter(prefix="/workspaces", tags=["workspaces"])
 
@@ -68,22 +64,25 @@ async def search(
     workspace_id: uuid.UUID,
     filter_params: Annotated[SearchParams, Query()],
     membership: AnyRole,
-    embedder:Annotated[BaseEmbedder, Depends(get_embedder)]
+    embedder: Annotated[BaseEmbedder, Depends(get_embedder)],
 ):
-    return await retrieve(db=db,workspace_id=workspace_id,filter_params=filter_params,embedder=embedder)
+    return await retrieve(
+        db=db, workspace_id=workspace_id, filter_params=filter_params, embedder=embedder
+    )
 
 
-
-
-@router.post("/{workspace_id}/ask",status_code=status.HTTP_200_OK,response_model=AskOut)
+@router.post("/{workspace_id}/ask", status_code=status.HTTP_200_OK, response_model=AskOut)
 async def ask_question(
     db: DbSession,
     workspace_id: uuid.UUID,
     membership: AnyRole,
-    embedder:Annotated[BaseEmbedder, Depends(get_embedder)],
-    llm:Annotated[LLMClient,Depends(get_llm)],
-    ask_params:Annotated[Ask, Body()] #/ask sud receive a JSON request body like {"question":"....."}
-
+    embedder: Annotated[BaseEmbedder, Depends(get_embedder)],
+    llm: Annotated[LLMClient, Depends(get_llm)],
+    ask_params: Annotated[
+        Ask, Body()
+    ],  # /ask sud receive a JSON request body like {"question":"....."}
 ):
-    answer=await ask(db=db,workspace_id=workspace_id,embedder=embedder,llm=llm,ask_params=ask_params)
+    answer = await ask(
+        db=db, workspace_id=workspace_id, embedder=embedder, llm=llm, ask_params=ask_params
+    )
     return answer

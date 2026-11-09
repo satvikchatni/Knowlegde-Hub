@@ -8,10 +8,11 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.config import settings
 from app.db import Base, get_db
-from app.deps import get_embedder, get_session_factory
+from app.deps import get_embedder, get_llm, get_session_factory
 from app.main import app
 from app.models import Role
 from app.services.local_embedder import FakeEmbedder
+from app.services.local_llm import FakeLLM
 
 # Tests are run on "<your database>_test", never on your real development database.
 TEST_DB_NAME = f"{settings.database_name}_test"
@@ -73,8 +74,13 @@ async def client(test_engine, session_factory, fake_embedder):
         session_factory
     )  # bg tasks only require a seperate session,not a seperate session factory
     app.dependency_overrides[get_embedder] = lambda: fake_embedder
+    app.dependency_overrides[get_llm] = lambda: FakeLLM(
+        '{"answer":"default answer","cited_ids":[]}'
+    )
     async with (
-        AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as test_client
+        AsyncClient(
+            transport=ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test"
+        ) as test_client
     ):  # ASGI doesn't run lifespan, so the real LocalEmbedder will not be initialized
         yield test_client
     app.dependency_overrides.clear()

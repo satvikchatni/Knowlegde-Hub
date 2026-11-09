@@ -1,6 +1,6 @@
-from typing import Self,Literal
+from typing import Literal, Self
 
-from pydantic import Field, model_validator, SecretStr
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import URL
 
@@ -21,16 +21,22 @@ class Settings(BaseSettings):
     chunk_overlap: int = 150
     embedding_batch_size: int = 32
     expected_dimension_size: int = 384
-    embedder_backend: Literal["local","fake"]="local" #Literal : only "local" or "fake" is allowed
-    embedding_model:str="BAAI/bge-small-en"
-    api_key:SecretStr
-    llm_model:str="gemini-3.8-flash"
-    llm_timeout_seconds:int=20
-    llm_max_retries:int=2
-    llm_max_tokens:int
-    ask_top_chunks:int =5#max number of chunks we'll send to the llm,limits the number of chunks
-    ask_max_context_characters:int=1000  #max number of characters that the llm will receive,limits the amount of text
-    llm_backend: Literal["gemini","fake"]="gemini"
+    embedder_backend: Literal["local", "fake"] = (
+        "local"  # Literal : only "local" or "fake" is allowed
+    )
+    embedding_model: str = "BAAI/bge-small-en"
+    api_key: SecretStr
+    llm_model: str = "gemini-3.8-flash"
+    llm_timeout_seconds: int = 20
+    llm_max_retries: int = 2
+    llm_max_tokens: int
+    ask_top_chunks: int = (
+        5  # max number of chunks we'll send to the llm,limits the number of chunks
+    )
+    ask_max_context_characters: int = (
+        1000  # max number of characters that the llm will receive,limits the amount of text
+    )
+    llm_backend: Literal["gemini", "fake"] = "gemini"
 
     # app refuses to start if below functions condition is False
     @model_validator(

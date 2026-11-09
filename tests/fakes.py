@@ -1,5 +1,6 @@
 from app.services.base_embedder import BaseEmbedder
 
+
 class FailingEmbedder(BaseEmbedder):  # for tests
     async def embed_documents(self, texts: list[str], is_query: bool = False):
         raise RuntimeError(

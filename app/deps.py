@@ -4,11 +4,11 @@ from typing import Annotated
 import jwt
 from fastapi import Depends, Request
 
-#requires python-multipart to be installed, uv add "fastapi[standard]" python-multipart, because the Oauth2 specifications require the authentication endpoint to receive form data instead of JSON.
+# requires python-multipart to be installed, uv add "fastapi[standard]" python-multipart, because the Oauth2 specifications require the authentication endpoint to receive form data instead of JSON.
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
-from app.services.base_llm import LLMClient
+
 from app.db import DbSession, engine
 from app.exceptions import (
     NotFound,
@@ -18,9 +18,12 @@ from app.exceptions import (
 from app.models import Membership, Role, User, ranking
 from app.security import decode_access_token
 from app.services.base_embedder import BaseEmbedder
+from app.services.base_llm import LLMClient
 
-#Oauth2PasswordBearer is used to extract the token from the Authorization headers of a HTTP request.
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")#tokenUrl where exactly the client/user is supposed to be sending the credentials
+# Oauth2PasswordBearer is used to extract the token from the Authorization headers of a HTTP request.
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="/auth/login"
+)  # tokenUrl where exactly the client/user is supposed to be sending the credentials
 
 
 async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db: DbSession) -> User:
@@ -76,14 +79,16 @@ real_factory = async_sessionmaker(bind=engine, expire_on_commit=False)
 def get_session_factory():
     return real_factory
 
-#Request is a object that contains information about the incoming HTTP request.
-#app instance isn't automatically available in every function
-#FastAPI knows how to provide Request immediately as a paramter
-#request.app acesses the fastapi application handling the request
+
+# Request is a object that contains information about the incoming HTTP request.
+# app instance isn't automatically available in every function
+# FastAPI knows how to provide Request immediately as a paramter
+# request.app acesses the fastapi application handling the request
 
 
 def get_embedder(request: Request) -> BaseEmbedder:
     return request.app.state.embedder
 
-def get_llm(request:Request)->LLMClient:
+
+def get_llm(request: Request) -> LLMClient:
     return request.app.state.llm

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -10,23 +11,26 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.exceptions import HTTPException as StarletteException
 
+from app.config import settings
 from app.db import engine, get_db
 from app.exceptions import AppError
 from app.routers import auth, documents, workspaces
 from app.services.local_embedder import LocalEmbedder
-import asyncio
-from app.config import settings
-from app.services.local_llm import GeminiLLM,FakeLLM
-#a normal context manager would be with open("exmaple.txt") as f: it opens the file,you work with it and python closes it automatically.
-#@asynccontexrmanager is a decorator from contextlib which allows you to write asynchronous context managers using async and yield.
+from app.services.local_llm import FakeLLM, GeminiLLM
 
-@asynccontextmanager#everything before yield is setup,after yield is cleanup and yield marks the point where the appln can run.
+# a normal context manager would be with open("exmaple.txt") as f: it opens the file,you work with it and python closes it automatically.
+# @asynccontexrmanager is a decorator from contextlib which allows you to write asynchronous context managers using async and yield.
+
+
+@asynccontextmanager  # everything before yield is setup,after yield is cleanup and yield marks the point where the appln can run.
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    if settings.llm_backend=="gemini":
-        app.state.llm=GeminiLLM()
-    elif settings.llm_backend=="fake":
-        app.state.llm=FakeLLM()
-    app.state.embedder=await asyncio.to_thread(LocalEmbedder) #model loading can involve expensive sync work
+    if settings.llm_backend == "gemini":
+        app.state.llm = GeminiLLM()
+    elif settings.llm_backend == "fake":
+        app.state.llm = FakeLLM()
+    app.state.embedder = await asyncio.to_thread(
+        LocalEmbedder
+    )  # model loading can involve expensive sync work
     yield
     await engine.dispose()
 

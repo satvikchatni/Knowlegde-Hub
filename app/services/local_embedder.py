@@ -3,9 +3,10 @@ import asyncio
 import hashlib
 import math
 import re
-from app.config import settings
-#from fastembed import TextEmbedding :at top of file fastembed is imported whenever local_embedder.py is imported
 
+from app.config import settings
+
+# from fastembed import TextEmbedding :at top of file fastembed is imported whenever local_embedder.py is imported
 from app.exceptions import EmbedderDimMismatchError
 from app.services.base_embedder import BaseEmbedder
 
@@ -16,10 +17,15 @@ from app.services.base_embedder import BaseEmbedder
 
 class LocalEmbedder(BaseEmbedder):
     def __init__(
-        self, model_name: str = settings.embedding_model, expected_dim_size: int=settings.expected_dimension_size
-    ):  
-        from fastembed import TextEmbedding#called a lazy import, fastembed is only imported when you actually construct LocalEmbedder
-         # setup code that runs once when your machine is turned on.
+        self,
+        model_name: str = settings.embedding_model,
+        expected_dim_size: int = settings.expected_dimension_size,
+    ):
+        from fastembed import (
+            TextEmbedding,
+        )  # called a lazy import, fastembed is only imported when you actually construct LocalEmbedder
+
+        # setup code that runs once when your machine is turned on.
         self.expected_dim_size = expected_dim_size
 
         self.model = TextEmbedding(model_name=model_name)
@@ -62,8 +68,7 @@ class LocalEmbedder(BaseEmbedder):
         return vectors
 
 
-
-#backend choice for CI.
+# backend choice for CI.
 class FakeEmbedder(BaseEmbedder):
     def __init__(self, expected_dim_size: int = 384):
         self.expected_dim_size = expected_dim_size
@@ -85,5 +90,3 @@ class FakeEmbedder(BaseEmbedder):
             vectors.append([x / norm for x in vec])
 
         return vectors
-
-

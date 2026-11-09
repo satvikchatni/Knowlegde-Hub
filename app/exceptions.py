@@ -68,17 +68,20 @@ class EmbeddingServiceUnavailable(AppError):
     status_code = 503
     code = "service_unavailable"
 
-#for invalid  response by llm
+
+# for invalid  response by llm
 class InvalidLLMResponse(AppError):
-    status_code= 502
-    code= "invalid_llm_response"
+    status_code = 502
+    code = "invalid_llm_response"
 
-#llm provider is unavailable or fails
+
+# llm provider is unavailable or fails
 class LLMUnavailable(AppError):
-    status_code=503
-    code="llm_unavailable"
+    status_code = 503
+    code = "llm_unavailable"
 
-#handles timeout failures
+
+# handles timeout failures
 class LLMTimeout(AppError):
-    status_code=504
-    code="llm_timeout"
+    status_code = 504
+    code = "llm_timeout"

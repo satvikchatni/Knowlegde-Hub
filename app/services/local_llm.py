@@ -1,10 +1,12 @@
-from app.services.base_llm import LLMClient
-from app.schemas import LLMResponse
-from google import genai
-from app.config import settings
-from google.genai import types,errors
-from app.exceptions import LLMTimeout,LLMUnavailable
 import httpx2
+from google import genai
+from google.genai import errors, types
+
+from app.config import settings
+from app.exceptions import LLMTimeout, LLMUnavailable
+from app.schemas import LLMResponse
+from app.services.base_llm import LLMClient
+
 
 #Since both classes below have the same return type the application can use either without caring which one it is...
 class GeminiLLM(LLMClient):
@@ -27,12 +29,14 @@ class GeminiLLM(LLMClient):
         except httpx2.TimeoutException as e:
             raise LLMTimeout("LLM took too long to respond") from e 
         except errors.APIError as e: #API-level error,gemini received request but responded with an error,maybe too many requests , gemini service unavailable
+            if e.code==401 or e.code==403:
+                raise  #re-raises the original exception,unauthenticated
             raise LLMUnavailable("LLM responded with an error") from e
         except httpx2.HTTPError as e :#HTTP transport-level error, problem while communicating over HTTP, connection error or network-related errors
             raise LLMUnavailable("HTTP transport communication error") from e
 
 class FakeLLM(LLMClient):
-    def __init__(self):
-        pass
+    def __init__(self,generated_text:str|None=None): #this is the constructor
+        self.generated_text=generated_text
     async def generate(self,system:str,message:str)->LLMResponse:
-        return LLMResponse(generated_text="This project will be the end of me",input_token_usage=123,output_token_usage=321)
+        return LLMResponse(generated_text=self.generated_text,input_token_usage=123,output_token_usage=321)
