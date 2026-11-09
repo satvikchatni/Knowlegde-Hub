@@ -67,3 +67,7 @@ class EmbedderDimMismatchError(AppError):
 class EmbeddingServiceUnavailable(AppError):
     status_code = 503
     code = "service_unavailable"
+
+class InvalidLLMResponse(AppError):
+    status_code= 502
+    code= "invalid_llm_response"

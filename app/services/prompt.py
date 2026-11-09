@@ -1,6 +1,9 @@
-from app.schemas import SearchOut
+from app.schemas import SearchOut, LLMAnswer
 import html
 from app.config import settings
+import json
+import pydantic
+from app.exceptions import InvalidLLMResponse
 
 system_prompt='''
 You are an assistant that answers questions based on the provided documents
@@ -30,3 +33,27 @@ def build_user_message(question:str,chunks:list[SearchOut]):
 
     context="\n".join(context_parts) # .join() takes every str in the list and combines them places "\n"(newline chracter between them)
     return f"User question:{question} \n Retrieved context=<context>{context}</context>" #<context> acts as delimiter helps gemini identify where the document begins and ends
+
+
+#llm responds with a json string
+#gemini replies with '{"answer":"<text>","cited_ids":["<id1>","<id2>",...,"<idn>"]}' ,which is a json str
+# .loads() converts that to {"answer":"<text>","cited_ids":["<id1>","<id2>",...,"<idn>"]} , which is a python dict
+def llm_response_parse(response:str):
+    #handling markdown fences
+    if response.startswith("```json"):
+        response=response.removeprefix("```json")
+    elif response.startswith("```"):
+        response=response.removeprefix("```")
+    response=response.removesuffix("```")
+    response=response.strip() #removing whitespaces
+    try:
+        response_obj=json.loads(response) #converts json str into a python object/dict in this case
+        llm_ans=LLMAnswer(**response_obj)
+        return llm_ans
+    except (json.JSONDecodeError, pydantic.ValidationError) as e: #1st one is for when gemini's answer is not a valid json, 2nd one is for when the it doesn't match the LLMAnswer schema.
+        raise InvalidLLMResponse("Either the LLM's answer is not a valid json or it doesn't match the schema") from e 
+
+
+#exception chaining
+# ... as e stores the original exception in e
+# raise ... from e links: custom exception to original exception

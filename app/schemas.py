@@ -105,4 +105,5 @@ class LLMResponse(BaseModel):
 
 #the structured answer Gemini generates
 class LLMAnswer(BaseModel):
-    pass
+    answer:str=Field(min_length=1)
+    cited_ids:list[str]
