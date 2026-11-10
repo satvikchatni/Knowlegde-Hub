@@ -26,7 +26,10 @@ class GeminiLLM(LLMClient):
     async def generate(self, system: str, message: str) -> LLMResponse:
         try:
             interaction = await self.client.interactions.create(
-                model=self.model, system_instruction=system, input=message
+                model=self.model,
+                system_instruction=system,
+                input=message,
+                generation_config={"max_output_tokens": settings.llm_max_tokens},
             )
             return LLMResponse(
                 generated_text=interaction.output_text,

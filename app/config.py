@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     llm_model: str = "gemini-3.8-flash"
     llm_timeout_seconds: int = 20
     llm_max_retries: int = 2
-    llm_max_tokens: int
+    llm_max_tokens: int = 1024
     ask_top_chunks: int = (
         5  # max number of chunks we'll send to the llm,limits the number of chunks
     )
