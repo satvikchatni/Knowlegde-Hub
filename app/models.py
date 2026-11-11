@@ -8,6 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
 
+from sqlalchemy import JSON
 
 class Role(StrEnum):
     OWNER = "owner"
@@ -112,3 +113,27 @@ class Chunk(Base):
         mapped_column()
     )  # if we change models later,this will be our safety net.
     __table_args__ = (UniqueConstraint("document_id", "position", name="documentid_position_uc"),)
+
+
+class Conversation(Base):
+    __tablename__ = "conversations"
+    id:Mapped[uuid.UUID]=mapped_column(primary_key=True,default=uuid.uuid4)
+    workspace_id:Mapped[uuid.UUID]=mapped_column(ForeignKey("workspace.id",ondelete="cascade"))
+    user_id:Mapped[uuid.UUID]=mapped_column(ForeignKey("users.id",ondelete="cascade"))
+    title:Mapped[str]=mapped_column()
+    #when the conversation was created and updated
+    created_at:Mapped[datetime]=mapped_column(TIMESTAMP(timezone=True),server_default=text('now()'))
+    updated_at:Mapped[datetime]=mapped_column(TIMESTAMP(timezone=True),server_default=text('now()'),onupdate=text('now()'))
+
+class Message(Base):
+    __tablename__ = "messages"
+    id:Mapped[uuid.UUID]=mapped_column(primary_key=True,default=uuid.uuid4)
+    conversation_id:Mapped[uuid.UUID]=mapped_column(ForeignKey("conversations.id",ondelete="cascade"),index=True)
+    role:Mapped[str]=mapped_column() #tells us whether message came from the "user" or "assistant"
+    content:Mapped[str]=mapped_column()
+    status:Mapped[str]=mapped_column()#can tell us the status of the assistant's message,"streaming","completed", or "failed"
+    #JSON describes how "citations" is stored in the database, and list[dict] is expected python value in the application code
+    citations:Mapped[list[dict]|None]=mapped_column(JSON,nullable=True) #because  a user's message has no citations neither does assistant's message with no document references
+    input_tokens:Mapped[int|None]=mapped_column(nullable=True) #cause user's message itself wont/doesn't  have any tokens/token count
+    output_tokens:Mapped[int|None]=mapped_column(nullable=True)
+    created_at:Mapped[datetime]=mapped_column(TIMESTAMP(timezone=True),server_default=text('now()'))
