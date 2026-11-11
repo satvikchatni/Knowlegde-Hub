@@ -127,3 +127,57 @@ class CitationSchema(BaseModel):
 class AskOut(BaseModel):
     answer: str
     citations: list[CitationSchema]
+
+
+#when a user is creating a conversation
+class ConversationIn(BaseModel):
+    title : str
+
+class ConversationOut(BaseModel):
+    id: uuid.UUID
+    workspace_id : uuid.UUID
+    user_id :uuid.UUID
+    title: str
+    created_at : datetime
+    updated_at: datetime
+    model_config=ConfigDict(from_attributes=True) #normally, pydantic expects a dict but from_attributes=True tells it to read values of object since SQLAlchemy gives ORM obj
+
+class MessageOut(BaseModel):
+    id:uuid.UUID
+    conversation_id:uuid.UUID
+    content:str
+    status:str
+    role:str
+    citations:list[dict]|None=None
+    input_tokens:int|None=None
+    output_tokens:int|None=None
+    created_at:datetime
+    model_config=ConfigDict(from_attributes=True)
+
+class QuestionIn(BaseModel):
+    question:str=Field(min_length=1,max_length=500)
+    model_config=ConfigDict(str_strip_whitespace=True)
+
+
+#generated text
+#TokenEvent sends each piece of text when it is generated
+class TokenEvent(BaseModel):
+    text:str
+
+#CitationEvent sends the source details supporting its answer
+class CitationEvent(BaseModel):
+    chunk_id:uuid.UUID
+    document_id:uuid.UUID
+    page_number:int
+    position:int
+    snippet:str
+
+#DoneEvent tells the frontend when the task is completed(task=generation of text) and provides token usage
+#when llm is finished generating text, send done event
+class DoneEvent(BaseModel):
+    input_tokens:int
+    output_tokens:int
+
+#if something goes wrong during streaming we send an error event
+class ErrorEvent(BaseModel):
+    error:str
