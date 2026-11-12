@@ -15,10 +15,11 @@ from app.exceptions import (
     UnAuthenticatedClient,
     UnAuthorizedClient,
 )
-from app.models import Membership, Role, User, ranking
+from app.models import Membership, Role, User, ranking, Conversation
 from app.security import decode_access_token
 from app.services.base_embedder import BaseEmbedder
 from app.services.base_llm import LLMClient
+
 
 # Oauth2PasswordBearer is used to extract the token from the Authorization headers of a HTTP request.
 oauth2_scheme = OAuth2PasswordBearer(
@@ -92,3 +93,13 @@ def get_embedder(request: Request) -> BaseEmbedder:
 
 def get_llm(request: Request) -> LLMClient:
     return request.app.state.llm
+
+
+
+async def get_conversation(db:DbSession,workspace_id:uuid.UUID,user:CurrentUser,conversation_id:uuid.UUID):
+    q=select(Conversation).where(Conversation.workspace_id==workspace_id,Conversation.id==conversation_id,Conversation.user_id==user.id)
+    convo=(await db.execute(q)).scalar_one_or_none()
+    if convo is None:
+        raise NotFound(f"Conversation with id:{conversation_id} doesn't exist")
+
+    return convo

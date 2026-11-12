@@ -181,3 +181,9 @@ class DoneEvent(BaseModel):
 #if something goes wrong during streaming we send an error event
 class ErrorEvent(BaseModel):
     error:str
+
+class LLMStreamResult(BaseModel):
+    status:str
+    input_tokens:int
+    output_tokens:int
+

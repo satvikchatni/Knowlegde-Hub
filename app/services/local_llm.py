@@ -4,8 +4,9 @@ from google.genai import errors, types
 
 from app.config import settings
 from app.exceptions import LLMTimeout, LLMUnavailable
-from app.schemas import LLMResponse
+from app.schemas import LLMResponse,LLMStreamResult
 from app.services.base_llm import LLMClient
+from typing import AsyncIterator
 
 
 # Since both classes below have the same return type the application can use either without caring which one it is...
@@ -45,12 +46,69 @@ class GeminiLLM(LLMClient):
         except httpx2.HTTPError as e:  # HTTP transport-level error, problem while communicating over HTTP, connection error or network-related errors
             raise LLMUnavailable("HTTP transport communication error") from e
 
+    #step.delta means gemini has produced a new piece of data, delta means a small change or addition to the response, event.delta.text contains those text pieces
+    #interactions.completed means the interaction has reached it's final event
+    #event something that took place during the interaction, event_type identfies what event happened
+    async def stream(self,system:str,message:str)->AsyncIterator[str|LLMStreamResult]:
+        try:
+            stream= await self.client.interactions.create(
+                model=self.model,
+                system_instruction=system,
+                input=message,
+                generation_config={"max_output_tokens":settings.llm_max_tokens},
+                stream=True,
+            )
+            completed=False
+            async for event in stream:
+                if event.event_type=="step.delta":
+                    if event.delta.type=="text":
+                        yield event.delta.text
+                elif event.event_type=="interaction.completed":
+                    completed=True
+                    llm_stream_result=LLMStreamResult(
+                        status=event.interaction.status,
+                        input_tokens=event.interaction.usage.total_input_tokens,
+                        output_tokens=event.interaction.usage.total_output_tokens,
+                    )
+                    yield llm_stream_result
+            if not completed: #to check if the if the stream was completed successfully
+                raise LLMUnavailable("LLM not able to respond")
+        except httpx2.TimeoutException as e:
+            raise LLMTimeout("LLM took too long to respond") from e
+        except errors.APIError as e: 
+            if e.code == 401 or e.code == 403:
+                raise 
+            raise LLMUnavailable("LLM responded with an error") from e
+        except httpx2.HTTPError as e:
+            raise LLMUnavailable("HTTP transport communication error") from e
 
 class FakeLLM(LLMClient):
-    def __init__(self, generated_text: str | None = None):  # this is the constructor
+    def __init__(self, generated_text: str | None = None,pieces:list[str]|None=None,fail_after:int|None=None,end_early:bool=False,hit_max_tokens:bool=False):  # this is the constructor
         self.generated_text = generated_text
-
+        self.pieces=pieces or []
+        #None means failure is disabled, 0 means fail immediately
+        if fail_after is None:
+            self.fail_after=None
+        else:
+            self.fail_after=fail_after or 0
+        self.end_early=end_early
+        self.hit_max_tokens=hit_max_tokens
     async def generate(self, system: str, message: str) -> LLMResponse:
         return LLMResponse(
             generated_text=self.generated_text, input_token_usage=123, output_token_usage=321
         )
+    async def stream(self,system:str,message:str)->AsyncIterator[str|LLMStreamResult]:
+        count=0
+        for text in self.pieces:
+            if count>=self.fail_after and self.fail_after is not None:
+                raise LLMUnavailable("llm has failed unexpectedly")
+            yield text
+            count+=1
+        if self.end_early:
+            return
+        elif self.hit_max_tokens:
+            yield LLMStreamResult(status="incomplete",input_tokens=1100,output_tokens=1200)
+        else:
+            yield LLMStreamResult(status="completed",input_tokens=1000,output_tokens=1100)
+        
+
