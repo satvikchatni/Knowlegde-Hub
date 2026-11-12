@@ -1,8 +1,10 @@
 import uuid
 from typing import Annotated
 
+from fastapi import HTTPException
+from sqlalchemy import select,delete
 from fastapi import APIRouter, Body, Depends, Query, status
-
+from app.models import Conversation
 from app.deps import AnyRole, CurrentUser, DbSession, Owner, get_embedder, get_llm
 from app.schemas import (
     Ask,
@@ -13,6 +15,8 @@ from app.schemas import (
     SearchParams,
     WorkSpaceCreate,
     WorkSpaceResponse,
+    ConversationOut,
+    ConversationIn
 )
 from app.services.base_embedder import BaseEmbedder
 from app.services.base_llm import LLMClient
@@ -24,6 +28,7 @@ from app.services.workspaces import (
     retrieve_single_workspace,
     retrieve_workspaces,
 )
+from app.exceptions import NotFound
 
 router = APIRouter(prefix="/workspaces", tags=["workspaces"])
 
@@ -86,3 +91,46 @@ async def ask_question(
         db=db, workspace_id=workspace_id, embedder=embedder, llm=llm, ask_params=ask_params
     )
     return answer
+
+@router.post("/{workspace_id}/conversations",response_model=ConversationOut,status_code=status.HTTP_201_CREATED)
+async def create_conversation(db:DbSession,workspace_id:uuid.UUID,body:ConversationIn,membership:AnyRole):
+    user_id=membership.user_id
+    c=Conversation(title=body.title,workspace_id=workspace_id,user_id=user_id)
+    db.add(c)
+    await db.commit()
+    await db.refresh(c)
+    return c
+    # return ConversationOut(id=c.id,workspace_id=workspace_id,user_id=user_id,title=body.title,created_at=c.created_at,updated_at=c.updated_at)
+
+@router.get("/{workspace_id}/conversations",response_model=list[ConversationOut],status_code=status.HTTP_200_OK)
+async def list_conversations(db:DbSession,workspace_id:uuid.UUID,membership:AnyRole):
+    stmt=select(Conversation).where(Conversation.workspace_id==workspace_id,Conversation.user_id==membership.user_id)
+    list_of_convos=(await db.execute(stmt)).scalars().all()
+    return list_of_convos
+
+@router.get("/{workspace_id}/conversations/{conversation_id}",response_model=ConversationOut,status_code=status.HTTP_200_OK)
+async def get_a_conversation(db:DbSession,workspace_id:uuid.UUID,conversation_id:uuid.UUID,membership:AnyRole):
+    user_id=membership.user_id
+    stmt=select(Conversation).where(Conversation.user_id==user_id,Conversation.workspace_id==workspace_id,Conversation.id==conversation_id)
+    conversation=(await db.execute(stmt)).scalar_one_or_none()
+    if conversation is None:
+        raise NotFound(f"conversation with id:{conversation_id} doesn't exist")
+        # raise HTTPException(
+        #     status_code=status.HTTP_404_NOT_FOUND,
+        #     detail=f"conversation with id:{conversation_id} doesn't exist"
+
+        # )
+    return conversation
+
+
+@router.delete("/{workspace_id}/conversations/{conversation_id}",status_code=status.HTTP_204_NO_CONTENT)
+async def delete_conversation(db:DbSession,workspace_id:uuid.UUID,conversation_id:uuid.UUID,membership:AnyRole):
+    user_id=membership.user_id
+    # RETURNING asks pg to return the id of the deleted row(convo)
+    query=delete(Conversation).where(Conversation.id==conversation_id,Conversation.user_id==user_id,Conversation.workspace_id==workspace_id).returning(Conversation.id)
+    result=(await db.execute(query)).scalar_one_or_none()
+    if result is None:
+        await db.rollback()
+        raise NotFound(f"conversation with id:{conversation_id} doesn't exist")
+       
+    await db.commit()
