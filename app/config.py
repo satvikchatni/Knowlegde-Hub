@@ -37,6 +37,7 @@ class Settings(BaseSettings):
         1000  # max number of characters that the llm will receive,limits the amount of text
     )
     llm_backend: Literal["gemini", "fake"] = "gemini"
+    conversation_history_max_chars: int=1000
 
     # app refuses to start if below functions condition is False
     @model_validator(
