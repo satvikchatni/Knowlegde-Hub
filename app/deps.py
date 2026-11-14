@@ -1,31 +1,30 @@
+import asyncio
+import html
 import uuid
 from typing import Annotated
-import html
+
 import jwt
 from fastapi import Depends, Request
-import asyncio
-
-from app.services.conversations import trim_history
 
 # requires python-multipart to be installed, uv add "fastapi[standard]" python-multipart, because the Oauth2 specifications require the authentication endpoint to receive form data instead of JSON.
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
-from app.schemas import SearchParams
-from app.services.workspaces import retrieve
 
-from app.db import DbSession, engine, SessionFactory
+from app.config import settings
+from app.db import DbSession, SessionFactory, engine
 from app.exceptions import (
     NotFound,
     UnAuthenticatedClient,
     UnAuthorizedClient,
 )
-from app.models import Membership, Role, User, ranking, Conversation, Message
+from app.models import Conversation, Membership, Message, Role, User, ranking
+from app.schemas import QuestionIn, SearchParams
 from app.security import decode_access_token
 from app.services.base_embedder import BaseEmbedder
 from app.services.base_llm import LLMClient
-from app.config import settings
-
+from app.services.conversations import trim_history
+from app.services.workspaces import retrieve
 
 # Oauth2PasswordBearer is used to extract the token from the Authorization headers of a HTTP request.
 oauth2_scheme = OAuth2PasswordBearer(
@@ -101,17 +100,22 @@ def get_llm(request: Request) -> LLMClient:
     return request.app.state.llm
 
 
-
-async def get_conversation(db:DbSession,workspace_id:uuid.UUID,user:CurrentUser,conversation_id:uuid.UUID):
-    q=select(Conversation).where(Conversation.workspace_id==workspace_id,Conversation.id==conversation_id,Conversation.user_id==user.id)
-    convo=(await db.execute(q)).scalar_one_or_none()
+async def get_conversation(
+    db: DbSession, workspace_id: uuid.UUID, user: CurrentUser, conversation_id: uuid.UUID
+):
+    q = select(Conversation).where(
+        Conversation.workspace_id == workspace_id,
+        Conversation.id == conversation_id,
+        Conversation.user_id == user.id,
+    )
+    convo = (await db.execute(q)).scalar_one_or_none()
     if convo is None:
         raise NotFound(f"Conversation with id:{conversation_id} doesn't exist")
 
     return convo
 
-CurrentConversation=Annotated[Conversation,Depends(get_conversation)]
 
+CurrentConversation = Annotated[Conversation, Depends(get_conversation)]
 
 
 system_prompt = """
@@ -124,32 +128,61 @@ Rules:
 """
 
 
-#it prepares the input for the LLM, but doesn't generate the answer itself, it prepares everything before streaming response starts
+# it prepares the input for the LLM, but doesn't generate the answer itself, it prepares everything before streaming response starts
 # turn means one complete interaction
-async def prepare_turn(membership:AnyRole,conversation:CurrentConversation,workspace_id:uuid.UUID,question:str,session_factory:SessionFactory,embedder:Annotated[BaseEmbedder,Depends(get_embedder)]):
+async def prepare_turn(
+    membership: AnyRole,
+    conversation: CurrentConversation,
+    workspace_id: uuid.UUID,
+    body: QuestionIn,
+    session_factory: SessionFactory,
+    embedder: Annotated[BaseEmbedder, Depends(get_embedder)],
+):
     async with session_factory() as dbsession:
-        mssg=Message(conversation_id=conversation.id,role="user",content=question,status="completed")
+        mssg = Message(
+            conversation_id=conversation.id, role="user", content=body.question, status="completed"
+        )
         dbsession.add(mssg)
-        await dbsession.commit()#why commmit now, bcz even if gemini fails halfway the user's question should be stored in the db
+        await dbsession.commit()  # why commmit now, bcz even if gemini fails halfway the user's question should be stored in the db
         await dbsession.refresh(mssg)
-        message_id=mssg.id
-        #newest messages first
-        messages=(await dbsession.execute(select(Message).where(Message.conversation_id==conversation.id).order_by(Message.created_at.desc()))).scalars().all()
-        search_params=SearchParams(q=question,limit=settings.ask_top_chunks)
-        best_chunks=await retrieve(db=dbsession,filter_params=search_params,workspace_id=workspace_id,embedder=embedder)
-        chunks_inline_citations=[]
-        for i,chunk in enumerate(best_chunks,start=1):
-            escaped_text=html.escape(chunk.text,quote=False)
-            chunks_inline_citations.append(f"[{i}]"+" "+escaped_text)
-        source_context="\n".join(chunks_inline_citations)
-        trimmed_history=await asyncio.to_thread(trim_history,messages=messages,max_chars=settings.conversation_history_max_chars)
-        format_text=[]
+        message_id = mssg.id
+        # newest messages first
+        messages = (
+            (
+                await dbsession.execute(
+                    select(Message)
+                    .where(Message.conversation_id == conversation.id)
+                    .order_by(Message.created_at.desc())
+                )
+            )
+            .scalars()
+            .all()
+        )
+        search_params = SearchParams(q=body.question, limit=settings.ask_top_chunks)
+        best_chunks = await retrieve(
+            db=dbsession, filter_params=search_params, workspace_id=workspace_id, embedder=embedder
+        )
+        chunks_inline_citations = []
+        for i, chunk in enumerate(best_chunks, start=1):
+            escaped_text = html.escape(chunk.text, quote=False)
+            chunks_inline_citations.append(f"[{i}]" + " " + escaped_text)
+        source_context = "\n".join(chunks_inline_citations)
+        trimmed_history = await asyncio.to_thread(
+            trim_history, messages=messages, max_chars=settings.conversation_history_max_chars
+        )
+        format_text = []
         for message in trimmed_history:
-            format_text.append(message.role+": "+message.content)
-        history_context="\n".join(format_text)
-        #includes chat history,retrieved relevant chunks, and user question
-        final_user_prompt=f"""Conversation history:{history_context}\n
-                            Current question:{question}\n
+            format_text.append(message.role + ": " + message.content)
+        history_context = "\n".join(format_text)
+        # includes chat history,retrieved relevant chunks, and user question
+        final_user_prompt = f"""Conversation history:{history_context}\n
+                            Current question:{body.question}\n
                             Retrieved relevant document chunks:{source_context}\n
                          """
-    return {"message_id":message_id,"conversation":conversation,"system_prompt":system_prompt,"final_user_prompt":final_user_prompt,"best_chunks":best_chunks}
+    return {
+        "message_id": message_id,
+        "conversation": conversation,
+        "system_prompt": system_prompt,
+        "final_user_prompt": final_user_prompt,
+        "best_chunks": best_chunks,
+    }

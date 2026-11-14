@@ -1,8 +1,7 @@
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
 
-from app.schemas import LLMResponse,LLMStreamResult
-from typing import AsyncIterator
-
+from app.schemas import LLMResponse, LLMStreamResult
 
 
 # LLM-Learning Language model like Gemini,Anthropic
@@ -14,7 +13,11 @@ class LLMClient(ABC):
         pass
 
     @abstractmethod
-    async def stream(self,system:str,message:str)->AsyncIterator[str|LLMStreamResult]: #here, AsyncIterator[str] means the function asynchronously yields strings, one at a time
+    async def stream(
+        self, system: str, message: str
+    ) -> AsyncIterator[
+        str | LLMStreamResult
+    ]:  # here, AsyncIterator[str] means the function asynchronously yields strings, one at a time
         pass
 
 

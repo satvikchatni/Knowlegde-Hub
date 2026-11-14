@@ -1,113 +1,159 @@
-from app.schemas import TokenEvent
-from app.services.base_llm import LLMClient
-from app.schemas import LLMStreamResult,CitationEvent,DoneEvent,ErrorEvent
-from app.exceptions import LLMUnavailable
-from fastapi.sse import ServerSentEvent
-from app.db import SessionFactory
-from app.models import Message
 import re
-import anyio
 
-def trim_history(messages,max_chars):
-    kept,count=[],0
+import anyio
+from fastapi.sse import ServerSentEvent
+
+from app.db import SessionFactory
+from app.exceptions import LLMUnavailable
+from app.models import Message
+from app.schemas import CitationEvent, DoneEvent, ErrorEvent, LLMStreamResult, TokenEvent
+from app.services.base_llm import LLMClient
+
+
+def trim_history(messages, max_chars):
+    kept, count = [], 0
     for message in messages:
-        size=len(message.content)
-        if size+count>max_chars:
+        size = len(message.content)
+        if size + count > max_chars:
             break
         kept.append(message)
-        count+=size
-    kept.reverse() # restores chronological order, because we collected messages newest first
-    while kept and kept[0].role!="user": #makes sure history starts with user message..., removes leading assistant message
+        count += size
+    kept.reverse()  # restores chronological order, because we collected messages newest first
+    while (
+        kept and kept[0].role != "user"
+    ):  # makes sure history starts with user message..., removes leading assistant message
         kept.pop(0)
     return kept
 
-def cited_numbers(text,max_n):
-    seen=[] 
-    #m.group(0) gives [12] entire match, m.group(1) gives 12 ,m.group() retrieves the text matched by re
-    for m in re.finditer(r"\[(\d+)\]",text): # \[ matches [ , \] matchs ] and (\d+) is capturing group1, it captures more than one digit
-        n=int(m.group(1))
-        if 1<=n<=max_n and n not in seen:
+
+def cited_numbers(text, max_n):
+    seen = []
+    # m.group(0) gives [12] entire match, m.group(1) gives 12 ,m.group() retrieves the text matched by re
+    for m in re.finditer(
+        r"\[(\d+)\]", text
+    ):  # \[ matches [ , \] matchs ] and (\d+) is capturing group1, it captures more than one digit
+        n = int(m.group(1))
+        if 1 <= n <= max_n and n not in seen:
             seen.append(n)
     return seen
 
 
-async def stream_turn(message_id,conversation,system_prompt,final_user_prompt,best_chunks,llm:LLMClient,session_factory:SessionFactory): #since not a route, no Depends
+async def stream_turn(
+    message_id,
+    conversation,
+    system_prompt,
+    final_user_prompt,
+    best_chunks,
+    llm: LLMClient,
+    session_factory: SessionFactory,
+):  # since not a route, no Depends
     if not best_chunks:
-        yield ServerSentEvent(data=TokenEvent(text="I don't know the answer based on the provided documents."),event="token")
+        yield ServerSentEvent(
+            data=TokenEvent(text="I don't know the answer based on the provided documents."),
+            event="token",
+        )
         with anyio.CancelScope(shield=True):
             async with session_factory() as db:
-                no_chunks_message=Message(conversation_id=conversation.id,role="assistant",content="I don't know the answer based on the provided documents.",status="completed",citations=[])
+                no_chunks_message = Message(
+                    conversation_id=conversation.id,
+                    role="assistant",
+                    content="I don't know the answer based on the provided documents.",
+                    status="completed",
+                    citations=[],
+                )
                 db.add(no_chunks_message)
                 await db.commit()
                 await db.refresh(no_chunks_message)
-        yield ServerSentEvent(data=DoneEvent(input_tokens=0,output_tokens=0),event="done") #since the llm wasn't called...
-        return 
-    generated_text=[]
-    message_saved=False
-    citations=[]
-    llm_stream_res=None
+        yield ServerSentEvent(
+            data=DoneEvent(input_tokens=0, output_tokens=0), event="done"
+        )  # since the llm wasn't called...
+        return
+    generated_text = []
+    message_saved = False
+    citations = []
+    llm_stream_res = None
     try:
-        async for token in llm.stream(system=system_prompt,message=final_user_prompt):
-            if isinstance(token,LLMStreamResult):
-                llm_stream_res=token
+        async for token in llm.stream(system=system_prompt, message=final_user_prompt):
+            if isinstance(token, LLMStreamResult):
+                llm_stream_res = token
             else:
                 generated_text.append(token)
-                yield ServerSentEvent(data=TokenEvent(text=token),event="token")
+                yield ServerSentEvent(data=TokenEvent(text=token), event="token")
         if llm_stream_res is None:
             raise LLMUnavailable("LLM stream ended without a final result")
-        full_text="".join(generated_text) #represents the complete answer generated by the llm
-        cited_nos=cited_numbers(text=full_text,max_n=len(best_chunks))
+        full_text = "".join(generated_text)  # represents the complete answer generated by the llm
+        cited_nos = cited_numbers(text=full_text, max_n=len(best_chunks))
         for i in cited_nos:
-            chunk=(best_chunks[i-1])
-            citation={
-                "chunk_id":chunk.chunk_id,
-                "document_id":chunk.document_id,
-                "page_number":chunk.page_number,
-                "position":chunk.position,
-                "snippet":chunk.text
+            chunk = best_chunks[i - 1]
+            citation = {
+                "chunk_id": chunk.chunk_id,
+                "document_id": chunk.document_id,
+                "page_number": chunk.page_number,
+                "position": chunk.position,
+                "snippet": chunk.text,
             }
             citations.append(citation)
         for citation in citations:
-            yield ServerSentEvent(data=CitationEvent(**citation),event="citations") #**citation unpacks dict  into keyword arguments for CitationEvent, "chunk_id":"123" becomes chunk_id="123"
-        
-        if llm_stream_res.status=="incomplete": #llm stopped bcz it hit max token output limit
-            message_status="partial"
+            yield ServerSentEvent(
+                data=CitationEvent(**citation), event="citations"
+            )  # **citation unpacks dict  into keyword arguments for CitationEvent, "chunk_id":"123" becomes chunk_id="123"
+
+        if llm_stream_res.status == "incomplete":  # llm stopped bcz it hit max token output limit
+            message_status = "partial"
         else:
-            message_status="completed"
+            message_status = "completed"
         async with session_factory() as dbsession:
-            assistant_mssg=Message(conversation_id=conversation.id,role="assistant",content=full_text,status=message_status,input_tokens=llm_stream_res.input_tokens,output_tokens=llm_stream_res.output_tokens,citations=citations)
+            assistant_mssg = Message(
+                conversation_id=conversation.id,
+                role="assistant",
+                content=full_text,
+                status=message_status,
+                input_tokens=llm_stream_res.input_tokens,
+                output_tokens=llm_stream_res.output_tokens,
+                citations=citations,
+            )
             dbsession.add(assistant_mssg)
             await dbsession.commit()
-            message_saved=True
+            message_saved = True
             await dbsession.refresh(assistant_mssg)
-        yield ServerSentEvent(data=DoneEvent(input_tokens=llm_stream_res.input_tokens,output_tokens=llm_stream_res.output_tokens),event="done")
-        
+        yield ServerSentEvent(
+            data=DoneEvent(
+                input_tokens=llm_stream_res.input_tokens, output_tokens=llm_stream_res.output_tokens
+            ),
+            event="done",
+        )
 
-    except Exception as exc:#provider/llm errors
-        yield ServerSentEvent(data=ErrorEvent(error=str(exc)),event="error")
-    finally: #for client disconnection...., shielding protects the cleanup operation from the surrounding cancellation,it allows the db save to complete, 
-        cited_nos=cited_numbers(text="".join(generated_text),max_n=len(best_chunks))
-        citations=[]
+    except Exception as exc:  # provider/llm errors
+        yield ServerSentEvent(data=ErrorEvent(error=str(exc)), event="error")
+    finally:  # for client disconnection...., shielding protects the cleanup operation from the surrounding cancellation,it allows the db save to complete,
+        cited_nos = cited_numbers(text="".join(generated_text), max_n=len(best_chunks))
+        citations = []
         for i in cited_nos:
-            chunk=(best_chunks[i-1])
-            citation={
-            "chunk_id":chunk.chunk_id,
-            "document_id":chunk.document_id,
-            "page_number":chunk.page_number,
-            "position":chunk.position,
-            "snippet":chunk.text
+            chunk = best_chunks[i - 1]
+            citation = {
+                "chunk_id": chunk.chunk_id,
+                "document_id": chunk.document_id,
+                "page_number": chunk.page_number,
+                "position": chunk.position,
+                "snippet": chunk.text,
             }
             citations.append(citation)
         if llm_stream_res is None:
-            ip_tokens,op_tokens=0,0
+            ip_tokens, op_tokens = 0, 0
         else:
-            ip_tokens,op_tokens=llm_stream_res.input_tokens,llm_stream_res.output_tokens
+            ip_tokens, op_tokens = llm_stream_res.input_tokens, llm_stream_res.output_tokens
         if not message_saved:
             with anyio.CancelScope(shield=True):
                 async with session_factory() as db:
-                    error_message=Message(conversation_id=conversation.id,role="assistant",content="".join(generated_text),status="partial",citations=citations,input_tokens=ip_tokens,output_tokens=op_tokens)
+                    error_message = Message(
+                        conversation_id=conversation.id,
+                        role="assistant",
+                        content="".join(generated_text),
+                        status="partial",
+                        citations=citations,
+                        input_tokens=ip_tokens,
+                        output_tokens=op_tokens,
+                    )
                     db.add(error_message)
                     await db.commit()
-                    message_saved=True
-
-
+                    message_saved = True

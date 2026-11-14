@@ -22,11 +22,12 @@ async def get_db() -> AsyncIterator[AsyncSession]:
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
+
 async def get_session_factory():
     return SessionLocal
 
-#async_sessionmaker is a factory that creates async database sessions
-#[AsyncSession] tells python what type of sessions the factory creates
-#async_sessionmaker[AsyncSession]: a factory that creates objects of type AsyncSession
-SessionFactory=Annotated[async_sessionmaker[AsyncSession],Depends(get_session_factory)]
 
+# async_sessionmaker is a factory that creates async database sessions
+# [AsyncSession] tells python what type of sessions the factory creates
+# async_sessionmaker[AsyncSession]: a factory that creates objects of type AsyncSession
+SessionFactory = Annotated[async_sessionmaker[AsyncSession], Depends(get_session_factory)]
