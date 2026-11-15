@@ -7,8 +7,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.config import settings
-from app.db import Base, get_db
-from app.deps import get_embedder, get_llm, get_session_factory
+from app.db import Base, get_db, get_session_factory
+from app.deps import get_embedder, get_llm
 from app.main import app
 from app.models import Role
 from app.services.local_embedder import FakeEmbedder

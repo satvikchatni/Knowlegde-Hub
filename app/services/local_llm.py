@@ -111,7 +111,7 @@ class FakeLLM(LLMClient):
     async def stream(self, system: str, message: str) -> AsyncIterator[str | LLMStreamResult]:
         count = 0
         for text in self.pieces:
-            if count >= self.fail_after and self.fail_after is not None:
+            if self.fail_after is not None and count >= self.fail_after:
                 raise LLMUnavailable("llm has failed unexpectedly")
             yield text
             count += 1

@@ -86,8 +86,10 @@ async def stream_turn(
         for i in cited_nos:
             chunk = best_chunks[i - 1]
             citation = {
-                "chunk_id": chunk.chunk_id,
-                "document_id": chunk.document_id,
+                "chunk_id": str(
+                    chunk.chunk_id
+                ),  # citation is stored as JSON, so the ids should be strings, json cant directly store python uuids
+                "document_id": str(chunk.document_id),
                 "page_number": chunk.page_number,
                 "position": chunk.position,
                 "snippet": chunk.text,

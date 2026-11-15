@@ -188,14 +188,13 @@ async def stream(
     session_factory: SessionFactory,
     prepared: Annotated[dict, Depends(prepare_turn)],
 ):  # prepared receives dict returned by prepare_turn
-    return EventSourceResponse(
-        stream_turn(
-            message_id=prepared["message_id"],
-            conversation=prepared["conversation"],
-            system_prompt=prepared["system_prompt"],
-            final_user_prompt=prepared["final_user_prompt"],
-            best_chunks=prepared["best_chunks"],
-            llm=llm,
-            session_factory=session_factory,
-        )
-    )
+    async for event in stream_turn(
+        message_id=prepared["message_id"],
+        conversation=prepared["conversation"],
+        system_prompt=prepared["system_prompt"],
+        final_user_prompt=prepared["final_user_prompt"],
+        best_chunks=prepared["best_chunks"],
+        llm=llm,
+        session_factory=session_factory,
+    ):
+        yield event

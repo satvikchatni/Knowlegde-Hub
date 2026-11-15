@@ -9,10 +9,9 @@ from fastapi import Depends, Request
 # requires python-multipart to be installed, uv add "fastapi[standard]" python-multipart, because the Oauth2 specifications require the authentication endpoint to receive form data instead of JSON.
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app.config import settings
-from app.db import DbSession, SessionFactory, engine
+from app.db import DbSession, SessionFactory
 from app.exceptions import (
     NotFound,
     UnAuthenticatedClient,
@@ -77,13 +76,6 @@ def require_role(minimum_role: Role):
 AnyRole = Annotated[Membership, Depends(require_role(Role.VIEWER))]
 EditorandAbove = Annotated[Membership, Depends(require_role(Role.EDITOR))]
 Owner = Annotated[Membership, Depends(require_role(Role.OWNER))]
-
-
-real_factory = async_sessionmaker(bind=engine, expire_on_commit=False)
-
-
-def get_session_factory():
-    return real_factory
 
 
 # Request is a object that contains information about the incoming HTTP request.
