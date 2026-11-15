@@ -12,6 +12,7 @@ from sqlalchemy import select
 
 from app.config import settings
 from app.db import DbSession, SessionFactory
+from app.db import get_session_factory as get_session_factory #actually had one get_session_factory declared here, but can't have 2 so we deleted this one but since other files are importing from here we imported from the new one
 from app.exceptions import (
     NotFound,
     UnAuthenticatedClient,

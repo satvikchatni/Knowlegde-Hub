@@ -102,6 +102,7 @@ class FakeLLM(LLMClient):
             self.fail_after = fail_after or 0
         self.end_early = end_early
         self.hit_max_tokens = hit_max_tokens
+        self.received_messages=[]
 
     async def generate(self, system: str, message: str) -> LLMResponse:
         return LLMResponse(
@@ -109,6 +110,7 @@ class FakeLLM(LLMClient):
         )
 
     async def stream(self, system: str, message: str) -> AsyncIterator[str | LLMStreamResult]:
+        self.received_messages.append(message)
         count = 0
         for text in self.pieces:
             if self.fail_after is not None and count >= self.fail_after:
