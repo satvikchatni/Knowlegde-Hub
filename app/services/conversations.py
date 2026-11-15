@@ -73,8 +73,6 @@ async def stream_turn(
     citations = []
     llm_stream_res = None
     try:
-        
-        
         async for token in llm.stream(system=system_prompt, message=final_user_prompt):
             if isinstance(token, LLMStreamResult):
                 llm_stream_res = token
@@ -135,8 +133,8 @@ async def stream_turn(
         for i in cited_nos:
             chunk = best_chunks[i - 1]
             citation = {
-                "chunk_id": chunk.chunk_id,
-                "document_id": chunk.document_id,
+                "chunk_id": str(chunk.chunk_id),
+                "document_id": str(chunk.document_id),
                 "page_number": chunk.page_number,
                 "position": chunk.position,
                 "snippet": chunk.text,

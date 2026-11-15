@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     embedding_model: str = "BAAI/bge-small-en"
     api_key: SecretStr
     llm_model: str = "gemini-3.8-flash"
-    llm_timeout_seconds: int = 20
+    llm_timeout_seconds: int = 60
     llm_max_retries: int = 2
     llm_max_tokens: int = 1024
     ask_top_chunks: int = (

@@ -52,6 +52,7 @@ class GeminiLLM(LLMClient):
     # event something that took place during the interaction, event_type identfies what event happened
     async def stream(self, system: str, message: str) -> AsyncIterator[str | LLMStreamResult]:
         try:
+            print("calling gemini...")
             stream = await self.client.interactions.create(
                 model=self.model,
                 system_instruction=system,
@@ -59,8 +60,10 @@ class GeminiLLM(LLMClient):
                 generation_config={"max_output_tokens": settings.llm_max_tokens},
                 stream=True,
             )
+            print("gemini conn established")
             completed = False
             async for event in stream:
+                print("event type:", event.event_type)
                 if event.event_type == "step.delta":
                     if event.delta.type == "text":
                         yield event.delta.text
@@ -102,7 +105,7 @@ class FakeLLM(LLMClient):
             self.fail_after = fail_after or 0
         self.end_early = end_early
         self.hit_max_tokens = hit_max_tokens
-        self.received_messages=[]
+        self.received_messages = []
 
     async def generate(self, system: str, message: str) -> LLMResponse:
         return LLMResponse(
