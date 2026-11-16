@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     )
     llm_backend: Literal["gemini", "fake"] = "gemini"
     conversation_history_max_chars: int = 1000
+    redis_url: str= "redis://localhost:6379"
 
     # app refuses to start if below functions condition is False
     @model_validator(

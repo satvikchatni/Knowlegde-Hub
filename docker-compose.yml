@@ -5,24 +5,56 @@ services:
       POSTGRES_USER: ${DATABASE_USER}
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
       POSTGRES_DB: ${DATABASE_NAME}
+    #FastAPI connects to localhost, the docker forwards the connection to services inside the container
     ports:
-      - "${DATABASE_PORT}:5432"
+      - "${DATABASE_PORT}:5432" #host_port:container_port , port on computer:port postgres listens on inside the container
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER} -d ${DATABASE_NAME}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER} -d ${DATABASE_NAME}"] #CMD-SHELL tells docker to execute the command through a shell in docker
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  redis:
+    image: redis:7
+    
+    ports:
+        - '6379:6379' #we expose port 6379,so our application can talk to redis inside the docker container
+    volumes:
+        - redis-data:/data  #/data dir inside Redis that can store its data
+    
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping"] #redis-cli connects to the redis server, ping sends a health-check request and redis responds with a PONG if it's responding
       interval: 5s
       timeout: 3s
       retries: 10
 
+#volumes help preserve data when a container is removed or recreated
+#volume is Docker storage(storage managed by Docker) that exists independently of the container
 volumes:
   db_data:
 
+  redis-data: #docker managed storage volume:redis-data
 
 
 
+
+
+#Docker:the tool/platform for running containers
+#image, the blueprint/template used to create containers, redis:7
+#container,a running instance created from image
+#Service, a configuration in docker compose describing how our container should run
 
 
 #docker commands for reference
 #docker compose up -d , docker-tells your computer to use docker, compose-works with the services defined in compose file, up-creates and starts the containers if necessary,d-detached mode ,the containers run in the background and terminal is free to use
 #docker compose ps, lists currently running docker containers,ps-process status
+
+
+#Redis is listening on port 6379, when FastAPI connects to localhost:6379 it's saying "connect me to the application listening on port 6379"
+#local host:my computer
+
+
+#compose: bringing multiple containers together and managing them as one application
