@@ -17,10 +17,16 @@ from app.exceptions import AppError
 from app.routers import auth, documents, workspaces
 from app.services.local_embedder import LocalEmbedder
 from app.services.local_llm import FakeLLM, GeminiLLM
+from arq import create_pool
+from arq.connections import RedisSettings
+
+from redis.exceptions import TimeoutError as RedisTimeoutError
+from redis.exceptions import ConnectionError as RedisConnectionError
 
 # a normal context manager would be with open("exmaple.txt") as f: it opens the file,you work with it and python closes it automatically.
 # @asynccontexrmanager is a decorator from contextlib which allows you to write asynchronous context managers using async and yield.
 
+logger = logging.getLogger("app")
 
 @asynccontextmanager  # everything before yield is setup,after yield is cleanup and yield marks the point where the appln can run.
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -31,7 +37,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.embedder = await asyncio.to_thread(
         LocalEmbedder
     )  # model loading can involve expensive sync work
+
+    app.state.redis_pool=None
+    try:
+        app.state.redis_pool=await create_pool(RedisSettings.from_dsn(settings.redis_url)) #dsn-data source name
+    except (RedisConnectionError,RedisTimeoutError):
+        logger.warning("Redis is unavailable rn, queue operations will be disabled")
     yield
+    if app.state.redis_pool is not None:
+        await app.state.redis_pool.close()
+
     await engine.dispose()
 
 
@@ -82,7 +97,7 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
     )
 
 
-logger = logging.getLogger("app")
+
 
 
 @app.exception_handler(Exception)

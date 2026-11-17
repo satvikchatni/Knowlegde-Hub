@@ -3,6 +3,7 @@ import html
 import uuid
 from typing import Annotated
 
+from fastapi import HTTPException
 import jwt
 from fastapi import Depends, Request
 
@@ -181,3 +182,9 @@ async def prepare_turn(
         "final_user_prompt": final_user_prompt,
         "best_chunks": best_chunks,
     }
+
+
+async def get_queue(request:Request):
+    if request.app.state.redis_pool is None:
+        raise HTTPException(status_code=503,detail="service is currently unavailable")
+    return request.app.state.redis_pool

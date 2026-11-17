@@ -30,7 +30,19 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
-
+  
+  worker:
+    command: uv run arq app.worker.WorkerSettings #starts the arq cli, app.worker.WorkerSettings so that it looks inside worker.py inside app package, and uses class WorkerSettings for worker configuration
+    env_file: #so the worker can have access to all the env variables same as FastAPI
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+      
+           
 #volumes help preserve data when a container is removed or recreated
 #volume is Docker storage(storage managed by Docker) that exists independently of the container
 volumes:

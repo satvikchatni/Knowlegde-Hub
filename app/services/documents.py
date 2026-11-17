@@ -57,7 +57,7 @@ async def file_upload(
             filename=clean_name,
             content_type=file_type,
             size_bytes=file.size,
-            status=DocumentStatus.uploaded,
+            status=DocumentStatus.queued,
             storage_path=relative_path,
         )
         db.add(document)

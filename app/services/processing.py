@@ -104,10 +104,12 @@ async def process_document(
         except Exception:
             logger.exception(f"Ran into unexpected error with document:{document_id}")
             await s.rollback()  # again, rollback expires the ORM objects retrieval is necessary
-            stmt = select(Document).where(Document.id == document_id)
-            document = (await s.execute(stmt)).scalar_one_or_none()
-            if document is None:
-                return
-            document.status = "error"
-            document.error_message = "looking into it,fix will be on the way"
-            await s.commit()
+            raise #re-raise the exception so arq can detect it, the code commented out below will be handled in worker.py
+
+            # stmt = select(Document).where(Document.id == document_id)
+            # document = (await s.execute(stmt)).scalar_one_or_none()
+            # if document is None:
+            #     return
+            # document.status = "error"
+            # document.error_message = "looking into it,fix will be on the way"
+            # await s.commit()
