@@ -1,4 +1,4 @@
-# for bg tasks endpoint 
+# for bg tasks endpoint
 from io import BytesIO
 
 # unittest stands for unit testing, "unit" is the smallest testable part of an application like individual function,method or class

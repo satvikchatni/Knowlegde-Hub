@@ -3,9 +3,8 @@ import html
 import uuid
 from typing import Annotated
 
-from fastapi import HTTPException
 import jwt
-from fastapi import Depends, Request
+from fastapi import Depends, HTTPException, Request
 
 # requires python-multipart to be installed, uv add "fastapi[standard]" python-multipart, because the Oauth2 specifications require the authentication endpoint to receive form data instead of JSON.
 from fastapi.security import OAuth2PasswordBearer
@@ -184,7 +183,7 @@ async def prepare_turn(
     }
 
 
-async def get_queue(request:Request):
+async def get_queue(request: Request):
     if request.app.state.redis_pool is None:
-        raise HTTPException(status_code=503,detail="service is currently unavailable")
+        raise HTTPException(status_code=503, detail="service is currently unavailable")
     return request.app.state.redis_pool

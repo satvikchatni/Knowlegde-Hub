@@ -6,7 +6,6 @@ from pydantic import EmailStr
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.services.processing import process_document
 from app.config import settings
 from app.db import Base, get_db, get_session_factory
 from app.deps import get_embedder, get_llm, get_queue
@@ -14,6 +13,7 @@ from app.main import app
 from app.models import Role
 from app.services.local_embedder import FakeEmbedder
 from app.services.local_llm import FakeLLM
+from app.services.processing import process_document
 
 # Tests are run on "<your database>_test", never on your real development database.
 TEST_DB_NAME = f"{settings.database_name}_test"
@@ -62,23 +62,25 @@ def fake_embedder():
 
 class FakeQueue:
     def __init__(self):
-        self.calls=[]
-    async def enqueue_job(self,function_name:str,document_id:str,_job_id:str|None=None):
+        self.calls = []
+
+    async def enqueue_job(self, function_name: str, document_id: str, _job_id: str | None = None):
         self.calls.append(
-            {"function_name":function_name,
-             "document_id":document_id,
-             "_job_id":_job_id,
-             }
+            {
+                "function_name": function_name,
+                "document_id": document_id,
+                "_job_id": _job_id,
+            }
         )
+
 
 @pytest.fixture
 def fake_queue():
     return FakeQueue()
 
 
-
 @pytest.fixture
-async def client(fake_queue,test_engine, session_factory, fake_embedder):
+async def client(fake_queue, test_engine, session_factory, fake_embedder):
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
@@ -95,8 +97,8 @@ async def client(fake_queue,test_engine, session_factory, fake_embedder):
     app.dependency_overrides[get_llm] = lambda: FakeLLM(
         '{"answer":"default answer","cited_ids":[]}'
     )
-    
-    app.dependency_overrides[get_queue]=lambda:fake_queue
+
+    app.dependency_overrides[get_queue] = lambda: fake_queue
     async with (
         AsyncClient(
             transport=ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test"
@@ -114,17 +116,19 @@ async def db_session(test_engine, client):
 
 
 @pytest.fixture
-def upload_file(upload_client,session_factory,fake_embedder):
+def upload_file(upload_client, session_factory, fake_embedder):
     async def _upload_file(filename, content, workspace_id, headers, embedder=None):
         files = {"file": (filename, content, "text/plain")}
         result = await upload_client.post(
             f"/workspaces/{workspace_id}/documents", files=files, headers=headers
         )
-        if result.status_code==202:
-            await process_document(document_id=uuid.UUID(result.json()["id"]),session_factory=session_factory,embedder=embedder if embedder is not None else fake_embedder)
+        if result.status_code == 202:
+            await process_document(
+                document_id=uuid.UUID(result.json()["id"]),
+                session_factory=session_factory,
+                embedder=embedder if embedder is not None else fake_embedder,
+            )
         return result
-
-
 
     return _upload_file
 

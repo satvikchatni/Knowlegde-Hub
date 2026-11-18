@@ -7,7 +7,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.config import settings
-from app.exceptions import InvalidFile, PasswordProtected, UnsupportedType, InvalidDimensionError
+from app.exceptions import InvalidDimensionError, InvalidFile, PasswordProtected, UnsupportedType
 from app.models import Chunk, Document
 from app.services.base_embedder import BaseEmbedder
 from app.services.chunking import chunk_text
@@ -64,7 +64,9 @@ async def process_document(
                     start : start + batch_size
                 ]  # slicing extracts each batch
                 vectors_of_batch = await embedder.embed_documents(texts=batch, is_query=False)
-                if any(len(vector) != settings.expected_dimension_size   for vector in vectors_of_batch):
+                if any(
+                    len(vector) != settings.expected_dimension_size for vector in vectors_of_batch
+                ):
                     raise InvalidDimensionError("vectors returned of incorrect dims")
                 if len(vectors_of_batch) != len(batch):
                     raise ValueError("Batch size doesn't equal the vectors returned for that batch")
@@ -92,7 +94,7 @@ async def process_document(
             InvalidFile,
             PasswordProtected,
             UnsupportedType,
-            InvalidDimensionError
+            InvalidDimensionError,
         ) as e:  # user-defined errors only,cause ValueError,etc would display techincal text too.
             await (
                 s.rollback()
@@ -107,7 +109,7 @@ async def process_document(
         except Exception:
             logger.exception(f"Ran into unexpected error with document:{document_id}")
             await s.rollback()  # again, rollback expires the ORM objects retrieval is necessary
-            raise #re-raise the exception so arq can detect it, the code commented out below will be handled in worker.py
+            raise  # re-raise the exception so arq can detect it, the code commented out below will be handled in worker.py
 
             # stmt = select(Document).where(Document.id == document_id)
             # document = (await s.execute(stmt)).scalar_one_or_none()

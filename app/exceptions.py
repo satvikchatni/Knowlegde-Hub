@@ -86,6 +86,7 @@ class LLMTimeout(AppError):
     status_code = 504
     code = "llm_timeout"
 
+
 class InvalidDimensionError(AppError):
-    status_code= 422
-    code="invalid_dimension_error"
+    status_code = 422
+    code = "invalid_dimension_error"

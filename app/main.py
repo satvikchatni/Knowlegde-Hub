@@ -4,9 +4,13 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Annotated
 
+from arq import create_pool
+from arq.connections import RedisSettings
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from redis.exceptions import ConnectionError as RedisConnectionError
+from redis.exceptions import TimeoutError as RedisTimeoutError
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.exceptions import HTTPException as StarletteException
@@ -17,16 +21,12 @@ from app.exceptions import AppError
 from app.routers import auth, documents, workspaces
 from app.services.local_embedder import LocalEmbedder
 from app.services.local_llm import FakeLLM, GeminiLLM
-from arq import create_pool
-from arq.connections import RedisSettings
-
-from redis.exceptions import TimeoutError as RedisTimeoutError
-from redis.exceptions import ConnectionError as RedisConnectionError
 
 # a normal context manager would be with open("exmaple.txt") as f: it opens the file,you work with it and python closes it automatically.
 # @asynccontexrmanager is a decorator from contextlib which allows you to write asynchronous context managers using async and yield.
 
 logger = logging.getLogger("app")
+
 
 @asynccontextmanager  # everything before yield is setup,after yield is cleanup and yield marks the point where the appln can run.
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -38,10 +38,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         LocalEmbedder
     )  # model loading can involve expensive sync work
 
-    app.state.redis_pool=None
+    app.state.redis_pool = None
     try:
-        app.state.redis_pool=await create_pool(RedisSettings.from_dsn(settings.redis_url)) #dsn-data source name
-    except (RedisConnectionError,RedisTimeoutError):
+        app.state.redis_pool = await create_pool(
+            RedisSettings.from_dsn(settings.redis_url)
+        )  # dsn-data source name
+    except RedisConnectionError, RedisTimeoutError:
         logger.warning("Redis is unavailable rn, queue operations will be disabled")
     yield
     if app.state.redis_pool is not None:
@@ -95,9 +97,6 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
         },
         status_code=422,
     )
-
-
-
 
 
 @app.exception_handler(Exception)

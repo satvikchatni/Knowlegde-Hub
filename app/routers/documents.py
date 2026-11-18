@@ -1,13 +1,18 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Query, UploadFile, status, HTTPException
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-
-from redis.exceptions import TimeoutError as RedisTimeoutError
+from arq.connections import ArqRedis  # redis pool type
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
 from redis.exceptions import ConnectionError as RedisConnectionError
-from app.deps import AnyRole, DbSession, EditorandAbove, get_embedder, get_session_factory, get_queue
+from redis.exceptions import TimeoutError as RedisTimeoutError
+from sqlalchemy import select
+
+from app.deps import (
+    AnyRole,
+    DbSession,
+    EditorandAbove,
+    get_queue,
+)
 from app.exceptions import Conflict, NotFound
 from app.models import Document
 from app.schemas import (
@@ -15,13 +20,11 @@ from app.schemas import (
     ListRequest,
     ListResponse,
 )
-from app.services.base_embedder import BaseEmbedder
 from app.services.documents import delete_a_document, file_upload, get_a_document, list_of_documents
-from app.services.processing import process_document
 
 router = APIRouter(prefix="/workspaces/{workspace_id}/documents", tags=["documents"])
 
-#replaced with task-queue
+# replaced with task-queue
 # @router.post(
 #     "",
 #     status_code=status.HTTP_202_ACCEPTED,
@@ -42,6 +45,8 @@ router = APIRouter(prefix="/workspaces/{workspace_id}/documents", tags=["documen
 #     )
 #     return doc
 
+Queue = Annotated[ArqRedis, Depends(get_queue)]
+
 
 @router.post(
     "",
@@ -53,18 +58,22 @@ async def upload_file(
     file: UploadFile,
     db: DbSession,
     membership: EditorandAbove,
-    queue=Depends(get_queue),
+    queue: Queue,
 ):
     doc = await file_upload(workspace_id=workspace_id, file=file, db=db)
     try:
-        await queue.enqueue_job('process_doc_job',str(doc.id),_job_id=f'ingest:{doc.id}')
-    except (RedisTimeoutError,RedisConnectionError) as e:
-        document=(await db.execute(select(Document).where(Document.id==doc.id,Document.workspace_id==workspace_id))).scalar_one_or_none()
+        await queue.enqueue_job("process_doc_job", str(doc.id), _job_id=f"ingest:{doc.id}")
+    except (RedisTimeoutError, RedisConnectionError) as e:
+        document = (
+            await db.execute(
+                select(Document).where(Document.id == doc.id, Document.workspace_id == workspace_id)
+            )
+        ).scalar_one_or_none()
         if document is not None:
-            document.status="error"
-            document.error_message="Redis is unavailable.Please retry later."
+            document.status = "error"
+            document.error_message = "Redis is unavailable.Please retry later."
             await db.commit()
-        raise HTTPException(status_code=503,detail="Redis is down,try again later") from e 
+        raise HTTPException(status_code=503, detail="Redis is down,try again later") from e
     return doc
 
 
@@ -128,16 +137,13 @@ async def delete_document(
 #         raise Conflict("Document can only be retried if it's status is error")
 
 
-
-
-
 @router.post("/{document_id}/retry", status_code=status.HTTP_202_ACCEPTED)
 async def retry(
     db: DbSession,
     workspace_id: uuid.UUID,
     document_id: uuid.UUID,
     membership: EditorandAbove,
-    queue=Depends(get_queue)
+    queue: Queue,
 ):
     stmt = select(Document).where(Document.workspace_id == workspace_id, Document.id == document_id)
     document = (await db.execute(stmt)).scalar_one_or_none()
@@ -150,14 +156,22 @@ async def retry(
         document.error_message = None
         await db.commit()
         try:
-            await queue.enqueue_job('process_doc_job',str(document.id),_job_id=f'ingest:{document.id}') #job
-        except (RedisTimeoutError,RedisConnectionError) as e:
-            document=(await db.execute(select(Document).where(Document.id==document.id,Document.workspace_id==workspace_id))).scalar_one_or_none()
+            await queue.enqueue_job(
+                "process_doc_job", str(document.id), _job_id=f"ingest:{document.id}"
+            )  # job
+        except (RedisTimeoutError, RedisConnectionError) as e:
+            document = (
+                await db.execute(
+                    select(Document).where(
+                        Document.id == document.id, Document.workspace_id == workspace_id
+                    )
+                )
+            ).scalar_one_or_none()
             if document is not None:
-                document.status="error"
-                document.error_message="Redis is unavailable.Please retry later."
+                document.status = "error"
+                document.error_message = "Redis is unavailable.Please retry later."
                 await db.commit()
-            raise HTTPException(status_code=503,detail="Redis is down,try again later") from e 
+            raise HTTPException(status_code=503, detail="Redis is down,try again later") from e
         return document
     else:
         raise Conflict("Document can only be retried if it's status is error")
