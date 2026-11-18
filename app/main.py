@@ -45,7 +45,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.warning("Redis is unavailable rn, queue operations will be disabled")
     yield
     if app.state.redis_pool is not None:
-        await app.state.redis_pool.close()
+        await app.state.redis_pool.aclose()
 
     await engine.dispose()
 

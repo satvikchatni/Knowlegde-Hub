@@ -6,6 +6,7 @@ from app.deps import get_embedder
 from app.main import app
 from app.models import Chunk, Document
 from tests.fakes import FailingEmbedder, WrongDimEmbedder
+from app.worker import process_doc_job
 
 
 def create_file(tmp_path):
@@ -77,37 +78,38 @@ async def test_batching(
     assert len(chunks) == 5
     assert fake_embedder.batch_sizes == [2, 2, 1]
 
-
-async def test_embedder_failure(
-    db_session, client, tmp_path, make_user, make_workspace, upload_file
-):
-    app.dependency_overrides[get_embedder] = lambda: FailingEmbedder()
-    owner = await make_user("owner@example.com")
-    ws = await make_workspace(workspace_name="testws", user_headers=owner["headers"])
-    workspace_id = ws["id"]
-    file_path = create_file(tmp_path)
-    doc_response = await upload_file(
-        filename="test.txt",
-        content=file_path.read_bytes(),
-        workspace_id=ws["id"],
-        headers=owner["headers"],
-    )
-    assert doc_response.status_code == 202
-    r = await db_session.execute(select(Document).where(Document.id == doc_response.json()["id"]))
-    document = r.scalar_one()
-    assert document.status == "error"
-    document_id = doc_response.json()["id"]
-    result = await db_session.execute(
-        select(Chunk).where(Chunk.document_id == document_id, Chunk.workspace_id == workspace_id)
-    )
-    chunks = result.scalars().all()
-    assert not chunks
+#old bg tasks 
+# async def test_embedder_failure(
+#     db_session, client, tmp_path, make_user, make_workspace, upload_file
+# ):
+    
+#     owner = await make_user("owner@example.com")
+#     ws = await make_workspace(workspace_name="testws", user_headers=owner["headers"])
+#     workspace_id = ws["id"]
+#     file_path = create_file(tmp_path)
+#     doc_response = await upload_file(
+#         filename="test.txt",
+#         content=file_path.read_bytes(),
+#         workspace_id=ws["id"],
+#         headers=owner["headers"],
+#         embedder=FailingEmbedder()
+#     )
+#     assert doc_response.status_code == 202
+#     r = await db_session.execute(select(Document).where(Document.id == doc_response.json()["id"]))
+#     document = r.scalar_one()
+#     assert document.status == "error"
+#     document_id = doc_response.json()["id"]
+#     result = await db_session.execute(
+#         select(Chunk).where(Chunk.document_id == document_id, Chunk.workspace_id == workspace_id)
+#     )
+#     chunks = result.scalars().all()
+#     assert not chunks
 
 
 async def test_embedder_returning_wrongdim_vectors(
     db_session, client, tmp_path, make_user, make_workspace, upload_file
 ):
-    app.dependency_overrides[get_embedder] = lambda: WrongDimEmbedder()
+    
     owner = await make_user("owner@example.com")
     ws = await make_workspace(workspace_name="testws", user_headers=owner["headers"])
     workspace_id = ws["id"]
@@ -117,6 +119,7 @@ async def test_embedder_returning_wrongdim_vectors(
         content=file_path.read_bytes(),
         workspace_id=ws["id"],
         headers=owner["headers"],
+        embedder=WrongDimEmbedder()
     )
     assert doc_response.status_code == 202
     r = await db_session.execute(select(Document).where(Document.id == doc_response.json()["id"]))

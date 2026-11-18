@@ -32,9 +32,12 @@ services:
       retries: 10
   
   worker:
+    build: . #tells docker to build an image using Dockerfile(not docker-compose.yml) in project dir, building own docker image, command:docker compose build worker
     command: uv run arq app.worker.WorkerSettings #starts the arq cli, app.worker.WorkerSettings so that it looks inside worker.py inside app package, and uses class WorkerSettings for worker configuration
     env_file: #so the worker can have access to all the env variables same as FastAPI
       - .env
+    environment:
+      REDIS_URL: redis://redis:6379 #redis:6379 instead of localhost:6379 cause inside docker connects to redis container,locally connects to redis on local computer
     depends_on:
       db:
         condition: service_healthy

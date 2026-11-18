@@ -7,7 +7,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.config import settings
-from app.exceptions import InvalidFile, PasswordProtected, UnsupportedType
+from app.exceptions import InvalidFile, PasswordProtected, UnsupportedType, InvalidDimensionError
 from app.models import Chunk, Document
 from app.services.base_embedder import BaseEmbedder
 from app.services.chunking import chunk_text
@@ -64,6 +64,8 @@ async def process_document(
                     start : start + batch_size
                 ]  # slicing extracts each batch
                 vectors_of_batch = await embedder.embed_documents(texts=batch, is_query=False)
+                if any(len(vector) != settings.expected_dimension_size   for vector in vectors_of_batch):
+                    raise InvalidDimensionError("vectors returned of incorrect dims")
                 if len(vectors_of_batch) != len(batch):
                     raise ValueError("Batch size doesn't equal the vectors returned for that batch")
                 # .append() list of batches, .extend() list of flat vectors
@@ -90,6 +92,7 @@ async def process_document(
             InvalidFile,
             PasswordProtected,
             UnsupportedType,
+            InvalidDimensionError
         ) as e:  # user-defined errors only,cause ValueError,etc would display techincal text too.
             await (
                 s.rollback()

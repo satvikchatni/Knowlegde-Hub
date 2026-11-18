@@ -1,3 +1,4 @@
+# for bg tasks endpoint 
 from io import BytesIO
 
 # unittest stands for unit testing, "unit" is the smallest testable part of an application like individual function,method or class
@@ -46,7 +47,7 @@ async def test_txt_file_upload(upload_client, make_user, make_workspace, tmp_pat
         headers=owner["headers"],
     )
     assert response.status_code == 202
-    assert response.json()["status"] == "uploaded"
+    assert response.json()["status"] == "queued"
     assert "storage_path" not in response.json()
     path = (
         tmp_path / response.json()["workspace_id"] / f"{response.json()['id']}.txt"
@@ -64,7 +65,7 @@ async def test_pdf_file_upload(upload_client, make_user, make_workspace, tmp_pat
         f"/workspaces/{workspace_id}/documents", headers=owner["headers"], files=files
     )
     assert response.status_code == 202
-    assert response.json()["status"] == "uploaded"
+    assert response.json()["status"] == "queued"
     path = tmp_path / response.json()["workspace_id"] / f"{response.json()['id']}.pdf"
     assert path.exists() is True
     assert path.read_bytes() == b"%PDF- valid pdf header"
