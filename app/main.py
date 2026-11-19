@@ -18,7 +18,7 @@ from starlette.exceptions import HTTPException as StarletteException
 from app.config import settings
 from app.db import engine, get_db
 from app.exceptions import AppError
-from app.routers import auth, documents, workspaces, websockets
+from app.routers import auth, documents, websockets, workspaces
 from app.services.local_embedder import LocalEmbedder
 from app.services.local_llm import FakeLLM, GeminiLLM
 
@@ -43,7 +43,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.redis_pool = await create_pool(
             RedisSettings.from_dsn(settings.redis_url)
         )  # dsn-data source name
-    except (RedisConnectionError, RedisTimeoutError):
+    except RedisConnectionError, RedisTimeoutError:
         logger.warning("Redis is unavailable rn, queue operations will be disabled")
     yield
     if app.state.redis_pool is not None:

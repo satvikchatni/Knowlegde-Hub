@@ -2,6 +2,7 @@ import uuid
 
 import pytest
 from httpx2 import ASGITransport, AsyncClient
+from httpx2.websockets import ASGIWebSocketTransport
 from pydantic import EmailStr
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -106,6 +107,14 @@ async def client(fake_queue, test_engine, session_factory, fake_embedder):
     ):  # ASGI doesn't run lifespan, so the real LocalEmbedder will not be initialized
         yield test_client
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+async def ws_client(client):
+    async with AsyncClient(
+        transport=ASGIWebSocketTransport(app), base_url="http://test"
+    ) as test_client:
+        yield test_client
 
 
 @pytest.fixture

@@ -25,17 +25,25 @@ async def startup(ctx):
 async def process_doc_job(ctx, document_id: str):
     session_factory = ctx["session_factory"]
     embedder = ctx["embedder"]
-    redis_client= ctx["redis"]
-    channel= f"document:{document_id}:progress"
+    redis_client = ctx["redis"]
+    channel = f"document:{document_id}:progress"
 
-    #pass this callback to process_document
-    async def callback(status:str,detail:str):
-        await publish_progress(channel=channel,document_id=document_id,status=status,detail=detail,client=redis_client)
-
+    # pass this callback to process_document
+    async def callback(status: str, detail: str):
+        await publish_progress(
+            channel=channel,
+            document_id=document_id,
+            status=status,
+            detail=detail,
+            client=redis_client,
+        )
 
     try:
         await process_document(
-            document_id=uuid.UUID(document_id), session_factory=session_factory, embedder=embedder, progress_callback=callback
+            document_id=uuid.UUID(document_id),
+            session_factory=session_factory,
+            embedder=embedder,
+            progress_callback=callback,
         )
     except Exception as e:  # temporary error can be re-tried
         if ctx["job_try"] >= WorkerSettings.max_tries:
