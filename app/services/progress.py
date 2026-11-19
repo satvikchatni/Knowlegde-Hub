@@ -5,6 +5,9 @@ import json
 
 logger=logging.getLogger("progress")
 
+#BEST-EFFORT PUBLISHING , even if redis connection fails(the publishing runs into an error) the ingestion job should not be interupted
+
+
 #status provides what stage of ingestion we're currently at (reading,chunking,embedding,done)
 #detail provides extra information, such as 1/2 for embedding batches
 # message=f"""Doc id:-{document_id} #JSON is easier to  parse

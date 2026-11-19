@@ -3,6 +3,8 @@ import logging
 import uuid
 from pathlib import Path
 
+import math
+
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -13,21 +15,30 @@ from app.services.base_embedder import BaseEmbedder
 from app.services.chunking import chunk_text
 from app.services.extraction import file_extraction
 
+from collections.abc import Callable,Awaitable
+
 logger = logging.getLogger(__name__)  # __name__ identifies the module, makes logs easier to trace
 
+#process_document only needs to know what status and detail, doesnt need to know about redis , its job is to process documents
+#arq job creates the callback with client,channel and document_id , process_document calls the callback with status and detail, publish_progress(progress.py) publishes the complete message to redis
+#this is called closure: a function that remembers variables from the scope it was created in
 
 async def process_document(
     document_id: uuid.UUID,
     session_factory: async_sessionmaker[AsyncSession],
     embedder: BaseEmbedder,
+    progress_callback:Callable[[str,str],Awaitable[None]]|None=None, #Callable-represents a function you can call, [str,str]- the callback accepts two string args status and detail, Awaitable[None]- calling it asynchronously returns something you can await with no meaningful return value, |None- the callback is optional
 ):  # [] indicates what type of object the factory creates
     async with session_factory() as s:
         stmt = select(Document).where(Document.id == document_id)
         document = (await s.execute(stmt)).scalar_one_or_none()
         if document is None:
             return
+
         document.status = "reading"
         await s.commit()
+        if progress_callback is not None:
+            await progress_callback(status="reading",detail="")
         file_path = document.storage_path  # relative path
         try:
             # for to_thread() we can pass the function call,just the function itself and the arguments of fn as params of to_thread.
@@ -37,7 +48,8 @@ async def process_document(
             )  # as fn is synchronous, it's blocking code, it'll take time we assign it to a bg thread and await it
             position = 0
             new_chunks = []
-
+            if progress_callback is not None:
+                await progress_callback(status="chunking",detail="")
             for page in file:
                 page_number = page["page_number"]
                 text = page["text"]
@@ -59,7 +71,9 @@ async def process_document(
             ]  # extracts text from each chunk object
             batch_size = settings.embedding_batch_size  # gets the configured batch size
             vectors = []
+            total_batches=math.ceil(len(list_of_chunk_texts)/batch_size)
             for start in range(0, len(list_of_chunk_texts), batch_size):  # gets the starting index
+                
                 batch = list_of_chunk_texts[
                     start : start + batch_size
                 ]  # slicing extracts each batch
@@ -74,6 +88,9 @@ async def process_document(
                 vectors.extend(
                     vectors_of_batch
                 )  # .extend(vectors_of_batch) appends each vector indivifually to the main list,.append(vectors_of_batch) would add an entire batch as an nested list
+                batch_number=(start//batch_size)+1
+                if progress_callback is not None:
+                    await progress_callback(status="embedding",detail=f"{batch_number}/{total_batches}")
             if len(vectors) != len(list_of_chunk_texts):
                 raise ValueError(
                     "number of vectors returned doesn;t equal the number of chunks sent."
@@ -90,6 +107,8 @@ async def process_document(
             document.status = "done"
             document.error_message = None
             await s.commit()
+            if progress_callback is not None:
+                await progress_callback(status="done",detail="")
         except (
             InvalidFile,
             PasswordProtected,
@@ -106,6 +125,9 @@ async def process_document(
             document.status = "error"
             document.error_message = str(e)
             await s.commit()
+            if progress_callback is not None:
+                await progress_callback(status="error",detail="")
+
         except Exception:
             logger.exception(f"Ran into unexpected error with document:{document_id}")
             await s.rollback()  # again, rollback expires the ORM objects retrieval is necessary
