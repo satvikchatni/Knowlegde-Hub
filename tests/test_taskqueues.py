@@ -1,3 +1,5 @@
+from unittest.mock import AsyncMock
+
 import pytest
 from arq import Retry
 from sqlalchemy import select
@@ -145,7 +147,12 @@ class failingembedder:
 async def test_temp_error(
     db_session, client, make_user, make_workspace, fake_embedder, session_factory, monkeypatch
 ):
-    ctx = {"session_factory": session_factory, "embedder": failingembedder(), "job_try": 1}
+    ctx = {
+        "session_factory": session_factory,
+        "embedder": failingembedder(),
+        "job_try": 1,
+        "redis": AsyncMock(),
+    }
     owner = await make_user("owner@example.com")
     workspace = await make_workspace(workspace_name="testws", user_headers=owner["headers"])
     workspace_id = workspace["id"]
