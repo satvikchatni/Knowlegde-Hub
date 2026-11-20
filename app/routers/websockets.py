@@ -40,6 +40,7 @@ async def progress(workspace_id: uuid.UUID, websocket: WebSocket, session_factor
         websocket.accept()
     )  # browser sends websocket handshake request, FastAPI accepts it using websocket.accept()
     pubsub = None
+    list_of_channel_names = [f"progress:{workspace_id}"]
     try:
         try:
             token = await asyncio.wait_for(
@@ -62,19 +63,7 @@ async def progress(workspace_id: uuid.UUID, websocket: WebSocket, session_factor
             if membership is None:
                 await websocket.close(code=1008)
                 return
-            documents = (
-                (
-                    await db_session.execute(
-                        select(Document).where(Document.workspace_id == workspace_id)
-                    )
-                )
-                .scalars()
-                .all()
-            )
 
-        list_of_channel_names = []
-        for document in documents:
-            list_of_channel_names.append(f"document:{document.id}:progress")
         r: ArqRedis = websocket.app.state.redis_pool
 
         if r is None:  # check if the redis pool exists
@@ -86,8 +75,6 @@ async def progress(workspace_id: uuid.UUID, websocket: WebSocket, session_factor
             await pubsub.subscribe(channel)
         count = 0
         while True:
-            if len(list_of_channel_names) == 0:  # if no documents
-                break
             message = await pubsub.get_message(timeout=5)
 
             if message is None:

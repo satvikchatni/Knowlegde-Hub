@@ -26,7 +26,13 @@ async def process_doc_job(ctx, document_id: str):
     session_factory = ctx["session_factory"]
     embedder = ctx["embedder"]
     redis_client = ctx["redis"]
-    channel = f"document:{document_id}:progress"
+    async with session_factory() as db:
+        workspace_id = (
+            await db.execute(
+                select(Document.workspace_id).where(Document.id == uuid.UUID(document_id))
+            )
+        ).scalar_one()
+    channel = f"progress:{workspace_id}"  # every workspace will have it's own channel
 
     # pass this callback to process_document
     async def callback(status: str, detail: str):
@@ -55,6 +61,7 @@ async def process_doc_job(ctx, document_id: str):
                     document.status = "error"
                     document.error_message = "Reached max number of re-tries"
                     await db.commit()
+                    await callback(status="error", detail="")
         else:
             raise Retry(defer=ctx["job_try"] * 5) from e
 

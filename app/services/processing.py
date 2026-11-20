@@ -37,10 +37,11 @@ async def process_document(
 
         document.status = "reading"
         await s.commit()
-        if progress_callback is not None:
-            await progress_callback(status="reading", detail="")
+
         file_path = document.storage_path  # relative path
         try:
+            if progress_callback is not None:
+                await progress_callback(status="reading", detail="")
             # for to_thread() we can pass the function call,just the function itself and the arguments of fn as params of to_thread.
             # so, no to_thread(fexample(arg1,arg2)), it sud be to_thread(fexample,arg1,arg2)
             file = await asyncio.to_thread(
@@ -129,6 +130,20 @@ async def process_document(
             if progress_callback is not None:
                 await progress_callback(status="error", detail="")
 
+        except asyncio.CancelledError:
+            await s.rollback()
+
+            document = (
+                await s.execute(select(Document).where(Document.id == document_id))
+            ).scalar_one_or_none()
+            if document is not None:
+                document.status = "error"
+                document.error_message = "Document processing was cancelled"
+                await s.commit()
+
+                if progress_callback is not None:
+                    await progress_callback(status="error", detail="")
+            raise  # propogates the cancellation so ARQ knows what happened
         except Exception:
             logger.exception(f"Ran into unexpected error with document:{document_id}")
             await s.rollback()  # again, rollback expires the ORM objects retrieval is necessary

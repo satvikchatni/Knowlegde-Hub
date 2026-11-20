@@ -1,4 +1,27 @@
 services:
+  #"--host 0.0.0.0 --port 8000" make fastapi server acessible outside the container
+  api:
+    build: .
+    command: uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: redis://redis:6379 
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+
+    ports:
+      - "8000:8000"
+
+    volumes:
+      - storage-data:/app/storage
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    
   db:
     image: pgvector/pgvector:pg17
     environment:
@@ -38,6 +61,10 @@ services:
       - .env
     environment:
       REDIS_URL: redis://redis:6379 #redis:6379 instead of localhost:6379 cause inside docker connects to redis container,locally connects to redis on local computer
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+    volumes:
+      - storage-data:/app/storage #both worker and api share /app/storage, api uploads files there and worker reads those same files from there
     depends_on:
       db:
         condition: service_healthy
@@ -52,6 +79,8 @@ volumes:
   db_data:
 
   redis-data: #docker managed storage volume:redis-data
+
+  storage-data:
 
 
 
