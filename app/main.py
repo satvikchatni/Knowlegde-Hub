@@ -15,8 +15,9 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.exceptions import HTTPException as StarletteException
 
+
 from app.config import settings
-from app.db import engine, get_db
+from app.db import engine, get_db,SessionLocal
 from app.exceptions import AppError
 from app.routers import auth, documents, websockets, workspaces
 from app.services.local_embedder import LocalEmbedder
@@ -133,7 +134,55 @@ def health_check():
     return {"status": "healthy"}
 
 
-@app.get("/health/db")
-async def health_check_db(db: Annotated[AsyncSession, Depends(get_db)]):
-    await db.execute(text("SELECT 1"))
-    return {"database": "ok"}
+# @app.get("/health/db")
+# async def health_check_db(db: Annotated[AsyncSession, Depends(get_db)]):
+#     await db.execute(text("SELECT 1"))
+#     return {"database": "ok"}
+
+CHECK_TIMEOUT=5
+async def _run(name:str,function):
+    try:
+        await asyncio.wait_for(function(),CHECK_TIMEOUT)
+
+        return name, 'ok'
+    except TimeoutError:
+        return name, 'timeout'
+    except Exception as e:
+
+        logger.warning('rediness check %s failed: %r',name,e) #%r formats the exception e using repr(e)
+        return name, 'error'
+
+async def check_db():
+    async with SessionLocal() as db:
+        await db.execute(text("SELECT 1"))
+
+async def check_redis():
+    redis=app.state.redis_pool
+    if redis is None:
+        raise RuntimeError("Redis pool in unavailable")
+    await redis.ping()
+
+
+CHECKS={
+    "db":check_db,"redis":check_redis
+}
+
+@app.get("/ready")
+async def ready():
+
+    results=dict(
+        await asyncio.gather(
+            *[_run(n,f) for n,f in CHECKS.items()]
+        )
+    )
+
+    ok=all(v=='ok' for v in results.values())
+    failing=[k for k,v in results.items() if v!="ok"]
+    return JSONResponse(
+        {
+            "status":"ready" if ok else "not_ready",
+            "failing":failing
+        },
+        status_code=200 if ok else 503
+    )
+
