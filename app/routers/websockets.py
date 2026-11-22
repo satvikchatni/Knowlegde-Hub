@@ -34,7 +34,7 @@ async def relay_loop(pubsub, websocket: WebSocket):
             await websocket.send_json(data)
 
 
-@router.websocket("/workspaces/{workspace_id}/progress",summary="Live status updates")
+@router.websocket("/workspaces/{workspace_id}/progress")
 async def progress(workspace_id: uuid.UUID, websocket: WebSocket, session_factory: SessionFactory):
     await (
         websocket.accept()
