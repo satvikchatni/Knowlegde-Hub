@@ -53,6 +53,7 @@ Queue = Annotated[ArqRedis, Depends(get_queue)]
     "",
     status_code=status.HTTP_202_ACCEPTED,
     response_model=DocumentResponse,
+    summary="To upload a document"
 )
 async def upload_file(
     workspace_id: uuid.UUID,
@@ -79,7 +80,7 @@ async def upload_file(
     return doc
 
 
-@router.get("", response_model=ListResponse, status_code=status.HTTP_200_OK)
+@router.get("", response_model=ListResponse, status_code=status.HTTP_200_OK,summary="List of documents")
 async def get_list_of_document(
     filter_query: Annotated[ListRequest, Query()],
     db: DbSession,
@@ -96,6 +97,7 @@ async def get_list_of_document(
     "/{document_id}",
     response_model=DocumentResponse,
     status_code=status.HTTP_200_OK,
+    summary="To get a particular document"
 )
 async def get_document(
     workspace_id: uuid.UUID, document_id: uuid.UUID, db: DbSession, membership: AnyRole
@@ -104,7 +106,7 @@ async def get_document(
     return document
 
 
-@router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT,summary="To delete a document")
 async def delete_document(
     db: DbSession, workspace_id: uuid.UUID, document_id: uuid.UUID, membership: EditorandAbove
 ):
@@ -139,7 +141,7 @@ async def delete_document(
 #         raise Conflict("Document can only be retried if it's status is error")
 
 
-@router.post("/{document_id}/retry", status_code=status.HTTP_202_ACCEPTED)
+@router.post("/{document_id}/retry", status_code=status.HTTP_202_ACCEPTED,summary="Retry document processing")
 async def retry(
     db: DbSession,
     workspace_id: uuid.UUID,

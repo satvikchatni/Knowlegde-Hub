@@ -11,29 +11,29 @@ from app.services.auth import login_user, logout_user, refresh_route, register_u
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED,summary="Register endpoint for user",responses={409:{"description":"Email already registered"}})
 async def register(body: RegisterRequest, db: DbSession):
     user = await register_user(db=db, body=body)
     return user
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=TokenResponse,summary="Log In for registered user",responses={401:{"description":"Invalid email or password"}})
 async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db: DbSession):
     token_response = await login_user(form_data=form_data, db=db)
     return token_response
 
 
-@router.get("/me", response_model=UserResponse)
+@router.get("/me", response_model=UserResponse,summary="Get user information",responses={401:{"description":"not authenticated"}})
 async def get_current_user(current_user: CurrentUser):
     return current_user
 
 
-@router.post("/refresh", response_model=TokenResponse)
+@router.post("/refresh", response_model=TokenResponse,summary="Refresh Tokens",responses={403:{"description":"invalid,expired or reused refresh token"}})
 async def refresh(body: RefreshRequest, db: DbSession):
     refresh_response = await refresh_route(body=body, db=db)
     return refresh_response
 
 
-@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT,summary="Logging user out",responses={401:{"description":"not authenticated"}})
 async def logout(body: RefreshRequest, db: DbSession) -> None:
     await logout_user(db=db, body=body)
