@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
 from redis.exceptions import ConnectionError as RedisConnectionError
 from redis.exceptions import TimeoutError as RedisTimeoutError
 from sqlalchemy import select
+from fastapi import Request
 
 from app.deps import (
     AnyRole,
@@ -59,10 +60,11 @@ async def upload_file(
     db: DbSession,
     membership: EditorandAbove,
     queue: Queue,
+    request:Request
 ):
     doc = await file_upload(workspace_id=workspace_id, file=file, db=db)
     try:
-        await queue.enqueue_job("process_doc_job", str(doc.id), _job_id=f"ingest:{doc.id}")
+        await queue.enqueue_job("process_doc_job", str(doc.id),request.state.request_id, _job_id=f"ingest:{doc.id}")
     except (RedisTimeoutError, RedisConnectionError) as e:
         document = (
             await db.execute(
@@ -144,6 +146,8 @@ async def retry(
     document_id: uuid.UUID,
     membership: EditorandAbove,
     queue: Queue,
+
+    request:Request
 ):
     stmt = select(Document).where(Document.workspace_id == workspace_id, Document.id == document_id)
     document = (await db.execute(stmt)).scalar_one_or_none()
@@ -157,7 +161,7 @@ async def retry(
         await db.commit()
         try:
             await queue.enqueue_job(
-                "process_doc_job", str(document.id), _job_id=f"ingest:{document.id}"
+                "process_doc_job", str(document.id),request.state.request_id, _job_id=f"ingest:{document.id}"
             )  # job
         except (RedisTimeoutError, RedisConnectionError) as e:
             document = (

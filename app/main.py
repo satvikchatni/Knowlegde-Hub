@@ -22,6 +22,7 @@ from app.routers import auth, documents, websockets, workspaces
 from app.services.local_embedder import LocalEmbedder
 from app.services.local_llm import FakeLLM, GeminiLLM
 from app.logging_config import setup_logging
+from app.middleware import RequestIDMiddleware
 
 # a normal context manager would be with open("exmaple.txt") as f: it opens the file,you work with it and python closes it automatically.
 # @asynccontexrmanager is a decorator from contextlib which allows you to write asynchronous context managers using async and yield.
@@ -63,6 +64,7 @@ app.include_router(workspaces.router)
 app.include_router(documents.router)
 app.include_router(websockets.router)
 
+app.add_middleware(RequestIDMiddleware)
 
 @app.exception_handler(AppError)
 async def app_error_handler(
@@ -107,11 +109,14 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
 
 @app.exception_handler(Exception)
 async def unexpected_error_handler(request: Request, exc: Exception):
+    request_id=request.state.request_id
     logger.exception(
         "Unhandled error on %s %s", request.method, request.url.path
     )  # replaces first one with HTTP method like POST, and second one with the URL Path /auth/login.
     return JSONResponse(
-        content={"error_code": "internal_error", "message": "Something went wrong"}, status_code=500
+        content={"error_code": "internal_error", "message": "Something went wrong"}, status_code=500, headers={
+            "X-Request-ID":request_id
+        }
     )
 
 
