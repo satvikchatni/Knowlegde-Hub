@@ -3,6 +3,8 @@ import html
 import uuid
 from typing import Annotated
 
+from app.services.rate_limiter import RateLimiter
+
 import jwt
 from fastapi import Depends, HTTPException, Request
 
@@ -187,3 +189,11 @@ async def get_queue(request: Request):
     if request.app.state.redis_pool is None:
         raise HTTPException(status_code=503, detail="service is currently unavailable")
     return request.app.state.redis_pool
+
+
+llm_limiter=RateLimiter(
+    name="llm",
+    limit=settings.rate_limit,
+    window=settings.rate_limit_window,
+    current_user=get_current_user
+)

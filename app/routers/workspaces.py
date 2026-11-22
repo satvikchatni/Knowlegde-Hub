@@ -6,7 +6,7 @@ from fastapi.sse import EventSourceResponse
 from sqlalchemy import delete, select
 
 from app.db import SessionFactory
-from app.deps import AnyRole, CurrentUser, DbSession, Owner, get_embedder, get_llm, prepare_turn
+from app.deps import AnyRole, CurrentUser, DbSession, Owner, get_embedder, get_llm, prepare_turn, llm_limiter
 from app.exceptions import NotFound
 from app.models import Conversation
 from app.schemas import (
@@ -50,7 +50,7 @@ async def get_workspaces(db: DbSession, user: CurrentUser):
 
 @router.get("/{workspace_id}", status_code=status.HTTP_200_OK, response_model=WorkSpaceResponse,summary="Getting a particular workspace")
 async def get_workspace(
-    workspace_id: uuid.UUID, db: DbSession, user: CurrentUser, membership=AnyRole
+    workspace_id: uuid.UUID, db: DbSession, user: CurrentUser, membership:AnyRole
 ):
     ws = await retrieve_single_workspace(db=db, user=user, workspace_id=workspace_id)
     return ws
@@ -79,7 +79,7 @@ async def search(
     )
 
 
-@router.post("/{workspace_id}/ask", status_code=status.HTTP_200_OK, response_model=AskOut,summary="User to ask questions")
+@router.post("/{workspace_id}/ask", status_code=status.HTTP_200_OK, response_model=AskOut,summary="User to ask questions",dependencies=[Depends(llm_limiter.dependency())],responses={429:{"description":"too many requests"}}) #.dependency() is function of class RateLimiter
 async def ask_question(
     db: DbSession,
     workspace_id: uuid.UUID,
@@ -182,7 +182,7 @@ async def delete_conversation(
 # also since stream_turn is an async generator contains yield, we don't await it
 # since prepare_turn already receives body:QuestionIn and reads the request body, declaring it again in the route is redundant
 @router.post(
-    "/{workspace_id}/conversations/{conversation_id}/stream", response_class=EventSourceResponse, summary="To stream responses to the user"
+    "/{workspace_id}/conversations/{conversation_id}/stream", response_class=EventSourceResponse, summary="To stream responses to the user",dependencies=[Depends(llm_limiter.dependency())],responses={429:{"description":"too many requests"}}
 )
 async def stream(
     workspace_id: uuid.UUID,
@@ -201,3 +201,5 @@ async def stream(
         session_factory=session_factory,
     ):
         yield event
+
+#shared bucket:/ask and /stream use the same per-user counter (llm_limiter)
