@@ -11,9 +11,15 @@ from app.models import Document
 from app.services.local_embedder import LocalEmbedder
 from app.services.processing import process_document
 from app.services.progress import publish_progress
+import logging
 
+from app.logging_config import setup_logging
 
 async def startup(ctx):
+    setup_logging()
+    logging.getLogger('arq').handlers.clear() #worker also provides log lines,don't want duplicate log lines
+
+
     ctx["session_factory"] = SessionLocal
     # ctx['embedder']=LocalEmbedder(), have to initialize the instance here, not the class
     ctx["embedder"] = await asyncio.to_thread(
