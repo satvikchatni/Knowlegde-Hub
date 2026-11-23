@@ -8,6 +8,6 @@ from app.schemas import Usage
 router=APIRouter(prefix="/usage",tags=["usage"])
 
 
-@router.get("",response_model=list[Usage])
+@router.get("",response_model=list[Usage],status_code=200)
 async def usage(db:DbSession,user:CurrentUser,since:date):
     return await get_usage(user_id=user.id,since=since,db=db)
