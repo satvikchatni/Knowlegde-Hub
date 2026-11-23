@@ -2,7 +2,6 @@ import uuid
 
 import pytest
 from httpx2 import ASGITransport, AsyncClient
-from httpx2.websockets import ASGIWebSocketTransport
 from pydantic import EmailStr
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -15,6 +14,8 @@ from app.models import Role
 from app.services.local_embedder import FakeEmbedder
 from app.services.local_llm import FakeLLM
 from app.services.processing import process_document
+
+from httpx2.websockets import ASGIWebSocketTransport
 
 # Tests are run on "<your database>_test", never on your real development database.
 TEST_DB_NAME = f"{settings.database_name}_test"
@@ -109,12 +110,6 @@ async def client(fake_queue, test_engine, session_factory, fake_embedder):
     app.dependency_overrides.clear()
 
 
-@pytest.fixture
-async def ws_client(client):
-    async with AsyncClient(
-        transport=ASGIWebSocketTransport(app), base_url="http://test"
-    ) as test_client:
-        yield test_client
 
 
 @pytest.fixture

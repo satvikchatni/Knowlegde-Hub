@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379"
     rate_limit:int=10 #max no of reqs allowed
     rate_limit_window:int=60 #time window in seconds
+    embedding_cache_ttl:int=24*60*60
 
     # app refuses to start if below functions condition is False
     @model_validator(

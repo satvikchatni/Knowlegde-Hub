@@ -25,6 +25,7 @@ from app.services.local_embedder import LocalEmbedder
 from app.services.local_llm import FakeLLM, GeminiLLM
 from app.logging_config import setup_logging
 from app.middleware import RequestIDMiddleware
+from app.services.cached_embedder import CachedEmbedder
 
 # a normal context manager would be with open("exmaple.txt") as f: it opens the file,you work with it and python closes it automatically.
 # @asynccontexrmanager is a decorator from contextlib which allows you to write asynchronous context managers using async and yield.
@@ -42,9 +43,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.llm = GeminiLLM()
     elif settings.llm_backend == "fake":
         app.state.llm = FakeLLM()
-    app.state.embedder = await asyncio.to_thread(
-        LocalEmbedder
-    )  # model loading can involve expensive sync work
+
 
     app.state.redis_pool = None
     try:
@@ -53,6 +52,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         )  # dsn-data source name
     except (RedisConnectionError, RedisTimeoutError):
         logger.warning("Redis is unavailable rn, queue operations will be disabled")
+    local_embedder = await asyncio.to_thread(
+    LocalEmbedder
+    )  # model loading can involve expensive sync work
+    if app.state.redis_pool is not None:
+        app.state.embedder=CachedEmbedder(
+            inner=local_embedder,
+            redis=app.state.redis_pool,
+            ttl=settings.embedding_cache_ttl,
+        )
+    else:
+        app.state.embedder=local_embedder
     yield
     if app.state.redis_pool is not None:
         await app.state.redis_pool.aclose()
