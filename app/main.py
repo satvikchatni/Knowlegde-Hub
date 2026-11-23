@@ -4,6 +4,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Annotated
 
+
 from arq import create_pool
 from arq.connections import RedisSettings
 from fastapi import Depends, FastAPI, Request
@@ -19,7 +20,7 @@ from starlette.exceptions import HTTPException as StarletteException
 from app.config import settings
 from app.db import engine, get_db,SessionLocal
 from app.exceptions import AppError
-from app.routers import auth, documents, websockets, workspaces
+from app.routers import auth, documents, websockets, workspaces,usage
 from app.services.local_embedder import LocalEmbedder
 from app.services.local_llm import FakeLLM, GeminiLLM
 from app.logging_config import setup_logging
@@ -64,6 +65,7 @@ app.include_router(auth.router)
 app.include_router(workspaces.router)
 app.include_router(documents.router)
 app.include_router(websockets.router)
+app.include_router(usage.router)
 
 app.add_middleware(RequestIDMiddleware)
 
@@ -124,12 +126,12 @@ async def unexpected_error_handler(request: Request, exc: Exception):
 # logger.exception(...) writes top-secret,highly technical details to your backend server logs while hiding them completely from the user.
 
 
-@app.get("/")
+@app.get("/",summary="root endpoint")
 def read_root():
     return {"message": "Hello, World!"}
 
 
-@app.get("/health")
+@app.get("/health",summary="liveness check")
 def health_check():
     return {"status": "healthy"}
 
@@ -167,7 +169,7 @@ CHECKS={
     "db":check_db,"redis":check_redis
 }
 
-@app.get("/ready")
+@app.get("/ready",summary="readiness check")
 async def ready():
 
     results=dict(
