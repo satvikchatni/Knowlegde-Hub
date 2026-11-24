@@ -3,8 +3,6 @@ import html
 import uuid
 from typing import Annotated
 
-from app.services.rate_limiter import RateLimiter
-
 import jwt
 from fastapi import Depends, HTTPException, Request
 
@@ -28,6 +26,7 @@ from app.security import decode_access_token
 from app.services.base_embedder import BaseEmbedder
 from app.services.base_llm import LLMClient
 from app.services.conversations import trim_history
+from app.services.rate_limiter import RateLimiter
 from app.services.workspaces import retrieve
 
 # Oauth2PasswordBearer is used to extract the token from the Authorization headers of a HTTP request.
@@ -191,9 +190,9 @@ async def get_queue(request: Request):
     return request.app.state.redis_pool
 
 
-llm_limiter=RateLimiter(
+llm_limiter = RateLimiter(
     name="llm",
     limit=settings.rate_limit,
     window=settings.rate_limit_window,
-    current_user=get_current_user
+    current_user=get_current_user,
 )

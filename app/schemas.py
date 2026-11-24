@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime,date
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -198,10 +198,9 @@ class LLMStreamResult(BaseModel):
 
 
 class Usage(BaseModel):
-    day:date
-    messages:int
-    input_tokens:int
-    output_tokens:int
+    day: date
+    messages: int
+    input_tokens: int
+    output_tokens: int
 
-    model_config=ConfigDict(from_attributes=True) #returning the ORM objects
-    
+    model_config = ConfigDict(from_attributes=True)  # returning the ORM objects

@@ -15,8 +15,6 @@ from app.services.local_embedder import FakeEmbedder
 from app.services.local_llm import FakeLLM
 from app.services.processing import process_document
 
-from httpx2.websockets import ASGIWebSocketTransport
-
 # Tests are run on "<your database>_test", never on your real development database.
 TEST_DB_NAME = f"{settings.database_name}_test"
 TEST_DB_URL = settings.database_url.set(database=TEST_DB_NAME)
@@ -108,8 +106,6 @@ async def client(fake_queue, test_engine, session_factory, fake_embedder):
     ):  # ASGI doesn't run lifespan, so the real LocalEmbedder will not be initialized
         yield test_client
     app.dependency_overrides.clear()
-
-
 
 
 @pytest.fixture

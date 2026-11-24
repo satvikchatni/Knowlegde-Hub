@@ -39,9 +39,10 @@ class Settings(BaseSettings):
     llm_backend: Literal["gemini", "fake"] = "gemini"
     conversation_history_max_chars: int = 1000
     redis_url: str = "redis://localhost:6379"
-    rate_limit:int=10 #max no of reqs allowed
-    rate_limit_window:int=60 #time window in seconds
-    embedding_cache_ttl:int=24*60*60
+    rate_limit: int = 10  # max no of reqs allowed
+    rate_limit_window: int = 60  # time window in seconds
+    embedding_cache_ttl: int = 24 * 60 * 60
+    cors_origins:list[str] 
 
     # app refuses to start if below functions condition is False
     @model_validator(

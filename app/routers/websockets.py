@@ -39,7 +39,10 @@ async def progress(workspace_id: uuid.UUID, websocket: WebSocket, session_factor
     await (
         websocket.accept()
     )  # browser sends websocket handshake request, FastAPI accepts it using websocket.accept()
-    logger.info("websocket connected",extra={"request_id":websocket.state.request_id,"workspace_id":str(workspace_id)})
+    logger.info(
+        "websocket connected",
+        extra={"request_id": websocket.state.request_id, "workspace_id": str(workspace_id)},
+    )
     pubsub = None
     list_of_channel_names = [f"progress:{workspace_id}"]
     try:
@@ -136,7 +139,10 @@ async def progress(workspace_id: uuid.UUID, websocket: WebSocket, session_factor
         await websocket.close(code=1011)
 
     finally:  # resource cleanup
-        logger.info("websocket disconnected",extra={"request_id":websocket.state.request_id,"workspace_id":str(workspace_id)})
+        logger.info(
+            "websocket disconnected",
+            extra={"request_id": websocket.state.request_id, "workspace_id": str(workspace_id)},
+        )
         if pubsub is not None:
             await pubsub.unsubscribe(
                 *list_of_channel_names

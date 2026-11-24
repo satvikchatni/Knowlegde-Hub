@@ -91,6 +91,7 @@ class InvalidDimensionError(AppError):
     status_code = 422
     code = "invalid_dimension_error"
 
+
 class RateLimited(AppError):
-    status_code=429
-    code="rate_limited"
+    status_code = 429
+    code = "rate_limited"

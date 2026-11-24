@@ -1,25 +1,25 @@
 import asyncio
+import logging
 import uuid
 
 from arq import Retry
 from arq.connections import RedisSettings
 from sqlalchemy import select
-from app.logging_config import request_id_var
 
 from app.config import settings
 from app.db import SessionLocal
+from app.logging_config import request_id_var, setup_logging
 from app.models import Document
 from app.services.local_embedder import LocalEmbedder
 from app.services.processing import process_document
 from app.services.progress import publish_progress
-import logging
 
-from app.logging_config import setup_logging
 
 async def startup(ctx):
     setup_logging()
-    logging.getLogger('arq').handlers.clear() #worker also provides log lines,don't want duplicate log lines
-
+    logging.getLogger(
+        "arq"
+    ).handlers.clear()  # worker also provides log lines,don't want duplicate log lines
 
     ctx["session_factory"] = SessionLocal
     # ctx['embedder']=LocalEmbedder(), have to initialize the instance here, not the class
@@ -29,8 +29,8 @@ async def startup(ctx):
 
 
 # permanent errors are handled in process_document function
-async def process_doc_job(ctx, document_id: str,request_id):
-    token=request_id_var.set(request_id)
+async def process_doc_job(ctx, document_id: str, request_id):
+    token = request_id_var.set(request_id)
     try:
         session_factory = ctx["session_factory"]
         embedder = ctx["embedder"]
@@ -52,11 +52,8 @@ async def process_doc_job(ctx, document_id: str,request_id):
                 detail=detail,
                 client=redis_client,
             )
-    
 
         try:
-        
-
             await process_document(
                 document_id=uuid.UUID(document_id),
                 session_factory=session_factory,
@@ -67,7 +64,9 @@ async def process_doc_job(ctx, document_id: str,request_id):
             if ctx["job_try"] >= WorkerSettings.max_tries:
                 async with session_factory() as db:
                     document = (
-                        await db.execute(select(Document).where(Document.id == uuid.UUID(document_id)))
+                        await db.execute(
+                            select(Document).where(Document.id == uuid.UUID(document_id))
+                        )
                     ).scalar_one_or_none()
                     if document is not None:
                         document.status = "error"

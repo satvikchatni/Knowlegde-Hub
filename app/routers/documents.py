@@ -2,11 +2,10 @@ import uuid
 from typing import Annotated
 
 from arq.connections import ArqRedis  # redis pool type
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, status
 from redis.exceptions import ConnectionError as RedisConnectionError
 from redis.exceptions import TimeoutError as RedisTimeoutError
 from sqlalchemy import select
-from fastapi import Request
 
 from app.deps import (
     AnyRole,
@@ -53,7 +52,7 @@ Queue = Annotated[ArqRedis, Depends(get_queue)]
     "",
     status_code=status.HTTP_202_ACCEPTED,
     response_model=DocumentResponse,
-    summary="To upload a document"
+    summary="To upload a document",
 )
 async def upload_file(
     workspace_id: uuid.UUID,
@@ -61,11 +60,13 @@ async def upload_file(
     db: DbSession,
     membership: EditorandAbove,
     queue: Queue,
-    request:Request
+    request: Request,
 ):
     doc = await file_upload(workspace_id=workspace_id, file=file, db=db)
     try:
-        await queue.enqueue_job("process_doc_job", str(doc.id),request.state.request_id, _job_id=f"ingest:{doc.id}")
+        await queue.enqueue_job(
+            "process_doc_job", str(doc.id), request.state.request_id, _job_id=f"ingest:{doc.id}"
+        )
     except (RedisTimeoutError, RedisConnectionError) as e:
         document = (
             await db.execute(
@@ -80,7 +81,9 @@ async def upload_file(
     return doc
 
 
-@router.get("", response_model=ListResponse, status_code=status.HTTP_200_OK,summary="List of documents")
+@router.get(
+    "", response_model=ListResponse, status_code=status.HTTP_200_OK, summary="List of documents"
+)
 async def get_list_of_document(
     filter_query: Annotated[ListRequest, Query()],
     db: DbSession,
@@ -97,7 +100,7 @@ async def get_list_of_document(
     "/{document_id}",
     response_model=DocumentResponse,
     status_code=status.HTTP_200_OK,
-    summary="To get a particular document"
+    summary="To get a particular document",
 )
 async def get_document(
     workspace_id: uuid.UUID, document_id: uuid.UUID, db: DbSession, membership: AnyRole
@@ -106,7 +109,9 @@ async def get_document(
     return document
 
 
-@router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT,summary="To delete a document")
+@router.delete(
+    "/{document_id}", status_code=status.HTTP_204_NO_CONTENT, summary="To delete a document"
+)
 async def delete_document(
     db: DbSession, workspace_id: uuid.UUID, document_id: uuid.UUID, membership: EditorandAbove
 ):
@@ -141,15 +146,18 @@ async def delete_document(
 #         raise Conflict("Document can only be retried if it's status is error")
 
 
-@router.post("/{document_id}/retry", status_code=status.HTTP_202_ACCEPTED,summary="Retry document processing")
+@router.post(
+    "/{document_id}/retry",
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Retry document processing",
+)
 async def retry(
     db: DbSession,
     workspace_id: uuid.UUID,
     document_id: uuid.UUID,
     membership: EditorandAbove,
     queue: Queue,
-
-    request:Request
+    request: Request,
 ):
     stmt = select(Document).where(Document.workspace_id == workspace_id, Document.id == document_id)
     document = (await db.execute(stmt)).scalar_one_or_none()
@@ -163,7 +171,10 @@ async def retry(
         await db.commit()
         try:
             await queue.enqueue_job(
-                "process_doc_job", str(document.id),request.state.request_id, _job_id=f"ingest:{document.id}"
+                "process_doc_job",
+                str(document.id),
+                request.state.request_id,
+                _job_id=f"ingest:{document.id}",
             )  # job
         except (RedisTimeoutError, RedisConnectionError) as e:
             document = (

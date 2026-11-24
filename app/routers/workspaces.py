@@ -6,7 +6,16 @@ from fastapi.sse import EventSourceResponse
 from sqlalchemy import delete, select
 
 from app.db import SessionFactory
-from app.deps import AnyRole, CurrentUser, DbSession, Owner, get_embedder, get_llm, prepare_turn, llm_limiter
+from app.deps import (
+    AnyRole,
+    CurrentUser,
+    DbSession,
+    Owner,
+    get_embedder,
+    get_llm,
+    llm_limiter,
+    prepare_turn,
+)
 from app.exceptions import NotFound
 from app.models import Conversation
 from app.schemas import (
@@ -36,28 +45,46 @@ from app.services.workspaces import (
 router = APIRouter(prefix="/workspaces", tags=["workspaces"])
 
 
-@router.post("", response_model=WorkSpaceResponse, status_code=status.HTTP_201_CREATED,summary="Creating a workspace")
+@router.post(
+    "",
+    response_model=WorkSpaceResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Creating a workspace",
+)
 async def create_workspace(db: DbSession, body: WorkSpaceCreate, user: CurrentUser):
     workspace = await make_workspace(db=db, body=body, user=user)
     return workspace
 
 
-@router.get("", status_code=status.HTTP_200_OK, response_model=list[WorkSpaceResponse],summary="Fetching list of workspaces")
+@router.get(
+    "",
+    status_code=status.HTTP_200_OK,
+    response_model=list[WorkSpaceResponse],
+    summary="Fetching list of workspaces",
+)
 async def get_workspaces(db: DbSession, user: CurrentUser):
     workspaces = await retrieve_workspaces(db=db, user=user)
     return workspaces
 
 
-@router.get("/{workspace_id}", status_code=status.HTTP_200_OK, response_model=WorkSpaceResponse,summary="Getting a particular workspace")
+@router.get(
+    "/{workspace_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=WorkSpaceResponse,
+    summary="Getting a particular workspace",
+)
 async def get_workspace(
-    workspace_id: uuid.UUID, db: DbSession, user: CurrentUser, membership:AnyRole
+    workspace_id: uuid.UUID, db: DbSession, user: CurrentUser, membership: AnyRole
 ):
     ws = await retrieve_single_workspace(db=db, user=user, workspace_id=workspace_id)
     return ws
 
 
 @router.post(
-    "/{workspace_id}/members", status_code=status.HTTP_201_CREATED, response_model=MemberResponse,summary="Adding a member to the workspace"
+    "/{workspace_id}/members",
+    status_code=status.HTTP_201_CREATED,
+    response_model=MemberResponse,
+    summary="Adding a member to the workspace",
 )
 async def add_user_to_workspace(body: MemberAdd, db: DbSession, membership: Owner):
     user = await add_to_workspace(body=body, db=db, membership=membership)
@@ -65,7 +92,10 @@ async def add_user_to_workspace(body: MemberAdd, db: DbSession, membership: Owne
 
 
 @router.get(
-    "/{workspace_id}/search", status_code=status.HTTP_200_OK, response_model=list[SearchOut], summary="Searching for similar chunks"
+    "/{workspace_id}/search",
+    status_code=status.HTTP_200_OK,
+    response_model=list[SearchOut],
+    summary="Searching for similar chunks",
 )
 async def search(
     db: DbSession,
@@ -79,7 +109,14 @@ async def search(
     )
 
 
-@router.post("/{workspace_id}/ask", status_code=status.HTTP_200_OK, response_model=AskOut,summary="User to ask questions",dependencies=[Depends(llm_limiter.dependency())],responses={429:{"description":"too many requests"}}) #.dependency() is function of class RateLimiter
+@router.post(
+    "/{workspace_id}/ask",
+    status_code=status.HTTP_200_OK,
+    response_model=AskOut,
+    summary="User to ask questions",
+    dependencies=[Depends(llm_limiter.dependency())],
+    responses={429: {"description": "too many requests"}},
+)  # .dependency() is function of class RateLimiter
 async def ask_question(
     db: DbSession,
     workspace_id: uuid.UUID,
@@ -100,7 +137,7 @@ async def ask_question(
     "/{workspace_id}/conversations",
     response_model=ConversationOut,
     status_code=status.HTTP_201_CREATED,
-    summary="To create a conversation"
+    summary="To create a conversation",
 )
 async def create_conversation(
     db: DbSession, workspace_id: uuid.UUID, body: ConversationIn, membership: AnyRole
@@ -118,7 +155,7 @@ async def create_conversation(
     "/{workspace_id}/conversations",
     response_model=list[ConversationOut],
     status_code=status.HTTP_200_OK,
-    summary="to fetch conversations"
+    summary="to fetch conversations",
 )
 async def list_conversations(db: DbSession, workspace_id: uuid.UUID, membership: AnyRole):
     stmt = select(Conversation).where(
@@ -132,7 +169,7 @@ async def list_conversations(db: DbSession, workspace_id: uuid.UUID, membership:
     "/{workspace_id}/conversations/{conversation_id}",
     response_model=ConversationOut,
     status_code=status.HTTP_200_OK,
-    summary="to get a particular conversation"
+    summary="to get a particular conversation",
 )
 async def get_a_conversation(
     db: DbSession, workspace_id: uuid.UUID, conversation_id: uuid.UUID, membership: AnyRole
@@ -155,7 +192,9 @@ async def get_a_conversation(
 
 
 @router.delete(
-    "/{workspace_id}/conversations/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT, summary="To delete a conversation"
+    "/{workspace_id}/conversations/{conversation_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="To delete a conversation",
 )
 async def delete_conversation(
     db: DbSession, workspace_id: uuid.UUID, conversation_id: uuid.UUID, membership: AnyRole
@@ -182,7 +221,11 @@ async def delete_conversation(
 # also since stream_turn is an async generator contains yield, we don't await it
 # since prepare_turn already receives body:QuestionIn and reads the request body, declaring it again in the route is redundant
 @router.post(
-    "/{workspace_id}/conversations/{conversation_id}/stream", response_class=EventSourceResponse, summary="To stream responses to the user",dependencies=[Depends(llm_limiter.dependency())],responses={429:{"description":"too many requests"}}
+    "/{workspace_id}/conversations/{conversation_id}/stream",
+    response_class=EventSourceResponse,
+    summary="To stream responses to the user",
+    dependencies=[Depends(llm_limiter.dependency())],
+    responses={429: {"description": "too many requests"}},
 )
 async def stream(
     workspace_id: uuid.UUID,
@@ -202,4 +245,5 @@ async def stream(
     ):
         yield event
 
-#shared bucket:/ask and /stream use the same per-user counter (llm_limiter)
+
+# shared bucket:/ask and /stream use the same per-user counter (llm_limiter)
