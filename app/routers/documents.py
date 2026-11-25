@@ -64,10 +64,10 @@ async def upload_file(
 ):
     doc = await file_upload(workspace_id=workspace_id, file=file, db=db)
     try:
-        job=await queue.enqueue_job(
+        job = await queue.enqueue_job(
             "process_doc_job", str(doc.id), request.state.request_id, _job_id=f"ingest:{doc.id}"
         )
-        print("enqueued job:",job)
+        print("enqueued job:", job)
     except (RedisTimeoutError, RedisConnectionError) as e:
         document = (
             await db.execute(

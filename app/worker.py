@@ -82,7 +82,7 @@ async def process_doc_job(ctx, document_id: str, request_id):
 class WorkerSettings:
     functions = [process_doc_job]
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
-    print("redis settings:",redis_settings)
+    print("redis settings:", redis_settings)
     on_startup = startup
     max_tries = 4
     keep_result = 0  # so, completed job IDs can be reused immediately, if same document needs to be retried later, ARQ can accept it

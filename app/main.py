@@ -7,12 +7,12 @@ from arq import create_pool
 from arq.connections import RedisSettings
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from redis.exceptions import ConnectionError as RedisConnectionError
 from redis.exceptions import TimeoutError as RedisTimeoutError
 from sqlalchemy import text
 from starlette.exceptions import HTTPException as StarletteException
-from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.db import SessionLocal, engine
@@ -46,10 +46,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.redis_pool = await create_pool(
             RedisSettings.from_dsn(settings.redis_url)
         )  # dsn-data source name
-    except (RedisConnectionError, RedisTimeoutError):
+    except RedisConnectionError, RedisTimeoutError:
         logger.warning("Redis is unavailable rn, queue operations will be disabled")
-    print("redis :",app.state.redis_pool)
-    print("queue name:",app.state.redis_pool.default_queue_name)
+    print("redis :", app.state.redis_pool)
+    print("queue name:", app.state.redis_pool.default_queue_name)
     local_embedder = await asyncio.to_thread(
         LocalEmbedder
     )  # model loading can involve expensive sync work
@@ -81,7 +81,7 @@ app.add_middleware(
     allow_origins=settings.cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
-    allow_credentials=True
+    allow_credentials=True,
 )
 
 
