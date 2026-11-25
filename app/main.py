@@ -48,6 +48,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         )  # dsn-data source name
     except (RedisConnectionError, RedisTimeoutError):
         logger.warning("Redis is unavailable rn, queue operations will be disabled")
+    print("redis :",app.state.redis_pool)
+    print("queue name:",app.state.redis_pool.default_queue_name)
     local_embedder = await asyncio.to_thread(
         LocalEmbedder
     )  # model loading can involve expensive sync work
